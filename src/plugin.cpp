@@ -31,6 +31,7 @@ static void SetupLog() {
 SKSEPluginLoad(const SKSE::LoadInterface *skse) {
 
     SetupLog();
+    logger::info("Game version: {}", skse->RuntimeVersion().string());
     logger::info("Plugin loaded");
     SKSE::Init(skse);
     Hooks::Install();
