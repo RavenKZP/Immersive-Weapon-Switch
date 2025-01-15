@@ -150,6 +150,7 @@ namespace Hooks {
 			logger::trace("Erasing from queue: {}", a_this->GetName());
 #endif
 			actor_queue.erase(it);
+            if (a_this->IsPlayerRef()) RE::SendUIMessage::SendInventoryUpdateMessage(a_this,nullptr);
         }
 
 		func(a_this, a_delta);
