@@ -55,10 +55,6 @@ namespace Hooks {
 
         if (a_object->IsWeapon()) {  // It's a weapon
             if (const RE::ActorState* actorState = a_actor->AsActorState()) {                       // nullptr check
-                /*if (actorState->GetWeaponState()==RE::WEAPON_STATE::kWantToDraw ||
-                    actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawing) {
-					return;
-                }*/
                 if (actorState->IsWeaponDrawn()) {  // use kDrawn?
                     
                     RE::TESForm* RequippedObject = a_actor->GetEquippedObject(false);
@@ -121,7 +117,6 @@ namespace Hooks {
         EquipObjectOverRide::InstallHook(trampoline);
 		ActorUpdateHook<RE::Character>::InstallHook();
 		ActorUpdateHook<RE::PlayerCharacter>::InstallHook();
-		UnEquipHook<RE::Character>::InstallHook();
 
     }
 
