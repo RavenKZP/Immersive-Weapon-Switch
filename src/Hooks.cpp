@@ -159,20 +159,4 @@ namespace Hooks {
 
 		func(a_this, a_delta);
     }
-
-    template<class T>
-	void UnEquipHook<T>::InstallHook()
-	{
-		REL::Relocation<std::uintptr_t> vTable(T::VTABLE[0]);
-		func = vTable.write_vfunc(0xA1, &UnEquipHook::thunk);
-	}
-    template<class T>
-    void UnEquipHook<T>::thunk(T* a_this, std::uint64_t a_arg1, RE::TESBoundObject* a_object)
-    {
-		if (!a_this || !a_object) return func(a_this, a_arg1, a_object);
-		if (a_object->IsWeapon()) {
-			logger::trace("Weapon {} unequipped by {}", a_object->GetName(), a_this->GetName());
-        }
-		func(a_this, a_arg1, a_object);
-    }
 };

@@ -22,13 +22,6 @@ namespace Hooks {
     };
 
 	template <class T>
-	struct UnEquipHook {
-		static void InstallHook();
-		static void thunk(T* a_this, std::uint64_t a_arg1, RE::TESBoundObject* a_object);
-		static inline REL::Relocation<decltype(thunk)> func;
-	};
-
-	template <class T>
 	struct ActorUpdateHook {
 		static void InstallHook();
 		static void thunk(T* a_this, float a_delta);
