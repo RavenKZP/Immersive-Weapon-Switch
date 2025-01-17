@@ -4,13 +4,7 @@
 
 // ToDo and Ideas
 //
-// Bug (crutial)
-// For some reason NPC do it like this:
-// Equip animation - Old weapon  <--- Wo don't want this
-// Unequip animation - Old weapon
-// Equip Animation - New weapon
-//
-// Implement this for stawes as optional file? (For mods that add stawes equip/unequip animations)
+// Implement for staves as optional? (For mods that add stawes equip/unequip animations)
 // 
 // General/New hooks?
 // ToDo: Inventory showing what item will be quiped (like it's equiped now)
@@ -25,7 +19,7 @@
 // Player have magic two hands Ready position (kDrawn)
 // Player equip a weaopn
 // Player unequip a weapon
-// Expected: Player equip spells
+// Expected: Player equip spells (like in vanilla)
 // Actual: Player equip bare hands
 //
 // ReadyWeaponHandlerHook
@@ -114,7 +108,7 @@ namespace Hooks {
         }
         logger::trace("{} is Equiping {}", a_actor->GetName(), a_object->GetName());
         
-        if (a_object->IsWeapon()) {
+        if (a_object->IsWeapon()) { //Or Shield, Or Spell, Or Staff, Or Scroll
             if (Utils::IsInPospondEquipQueue(Utils::ActorInfo(a_actor))) {
                 logger::trace("{} is in Pospond Equip Queue not allowing to Equip", a_actor->GetName());
                 if (a_actor == RE::PlayerCharacter::GetSingleton()) {
@@ -132,6 +126,7 @@ namespace Hooks {
                         logger::trace("{} is in kDrawn Weapon State, adding to Pospond Equip Queue", a_actor->GetName());
                         Utils::UpdatePospondEquipQueue(a_actor, a_object);
                         a_actor->DrawWeaponMagicHands(false);
+                        a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                         return;
                     }
                 }
@@ -168,6 +163,7 @@ namespace Hooks {
                                       a_actor->GetName());
                         Utils::UpdatePospondEquipQueue(a_actor, a_object, true);
                         a_actor->DrawWeaponMagicHands(false);
+                        a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                         return;
                     }
                 }
