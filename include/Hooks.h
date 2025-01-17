@@ -1,5 +1,4 @@
 #pragma once
-#include <shared_mutex>
 
 
 namespace Hooks {
@@ -15,54 +14,30 @@ namespace Hooks {
 
 	};
 
-	struct EquipObjectOverRide {
+	struct EquipObjectHook {
         static void InstallHook(SKSE::Trampoline& a_trampoline);
-        static void thunk(RE::ActorEquipManager* a_self, RE::Actor* a_actor, RE::TESBoundObject* a_object, std::uint64_t a_unk);
+        static void thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+                          RE::ExtraDataList* a_extraData = nullptr, std::uint32_t a_count = 1,
+                          const RE::BGSEquipSlot* a_slot = nullptr, bool a_queueEquip = true, bool a_forceEquip = false,
+                          bool a_playSounds = true, bool a_applyNow = false);
         static inline REL::Relocation<decltype(thunk)> func;
     };
 
-	template <class T>
-	struct UnEquipHook {
-		static void InstallHook();
-		static void thunk(T* a_this, std::uint64_t a_arg1, RE::TESBoundObject* a_object);
+	struct UnEquipObjectHook {
+        static void InstallHook(SKSE::Trampoline& a_trampoline);
+        static void thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+                          RE::ExtraDataList* a_extraData = nullptr, std::uint32_t a_count = 1,
+                          const RE::BGSEquipSlot* a_slot = nullptr, bool a_queueEquip = true, bool a_forceEquip = false,
+                          bool a_playSounds = true, bool a_applyNow = false,
+                          const RE::BGSEquipSlot* a_slotToReplace = nullptr);
 		static inline REL::Relocation<decltype(thunk)> func;
 	};
 
 	template <class T>
 	struct ActorUpdateHook {
 		static void InstallHook();
-		static void thunk(T* a_this, float a_delta);
+		static void thunk(T* a_actor, float a_delta);
 		static inline REL::Relocation<decltype(thunk)> func;
 	};
-
-    struct ActorInfo {
-	    FormID baseID;
-		RefID refID;
-		RE::TESBoundObject* queued_weap=nullptr;
-
-		bool operator<(const ActorInfo& rhs) const
-        {
-            return baseID < rhs.baseID ||
-                   (baseID == rhs.baseID && refID < rhs.refID);
-        }
-
-		bool operator ==(const ActorInfo& rhs) const {
-			return baseID == rhs.baseID && refID == rhs.refID;
-		}
-
-        explicit ActorInfo(RE::Actor* a_this) {
-			baseID = a_this->GetBaseObject()->GetFormID();
-			refID = a_this->GetFormID();
-		}
-
-		explicit ActorInfo(RE::Actor* a_this,RE::TESBoundObject* a_weap) {
-			baseID = a_this->GetBaseObject()->GetFormID();
-			refID = a_this->GetFormID();
-			queued_weap = a_weap;
-		}
-	};
-
-	inline std::shared_mutex actor_queue_mutex;
-	inline std::set<ActorInfo> actor_queue;
 
 }
