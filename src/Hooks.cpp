@@ -1,19 +1,74 @@
 #include "Hooks.h"
+#include "Utils.h"
+
+
+// ToDo and Ideas
+//
+// Implement for staves as optional? (For mods that add stawes equip/unequip animations)
+// 
+// General/New hooks?
+// ToDo: Inventory showing what item will be quiped (like it's equiped now)
+// ToFix: Unable to dual Hand Equip
+// ToFix: Able to equip shield when bow is equiped (bow is not auto uneqiped)
+//
+// When PC start combat (in town), and change weapon NPC stop combat
+// Because NPC stop combat when PC is Sheatling a weapon
+
+// Not Working as expected use cases:
+// 
+// Player have magic two hands Ready position (kDrawn)
+// Player equip a weaopn
+// Player unequip a weapon
+// Expected: Player equip spells (like in vanilla)
+// Actual: Player equip bare hands
+//
+// ReadyWeaponHandlerHook
+// ToDo: Add some force to object (like in Grab an throw)
+// ToDo: Call attack unarmed Letf or Right hand (Or some vanilla animation tah can fit)
+// ToFix: CTD on dropping Weap xp (UnequipHook Causing Inf loop?)
 
 
 namespace Hooks {
 
-    void ReadyWeaponHandlerHook::InstallHook()
-    {
+    void Install() {
+        constexpr size_t size_per_hook = 14;
+        auto& trampoline = SKSE::GetTrampoline();
+        SKSE::AllocTrampoline(size_per_hook * 2);
+
+        ReadyWeaponHandlerHook::InstallHook();
+        EquipObjectHook::InstallHook(trampoline);
+        UnEquipObjectHook::InstallHook(trampoline);
+        ActorUpdateHook<RE::Character>::InstallHook();
+        ActorUpdateHook<RE::PlayerCharacter>::InstallHook();
+    }
+
+    void ReadyWeaponHandlerHook::InstallHook() {
         REL::Relocation<std::uintptr_t> vTable(RE::VTABLE_ReadyWeaponHandler[0]);
         func = vTable.write_vfunc(0x4, &ReadyWeaponHandlerHook::thunk);
+    }
+    void EquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
+        const REL::Relocation<std::uintptr_t> target{RELOCATION_ID(37938, 38894),
+                                                     REL::VariantOffset(0xE5, 0x170, 0xE5)};
+        EquipObjectHook::func = a_trampoline.write_call<5>(target.address(), EquipObjectHook::thunk);
+    }
+    void UnEquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
+        const REL::Relocation<std::uintptr_t> target{RELOCATION_ID(37945, 38901),
+                                                     REL::VariantOffset(0x138, 0x1B9, 0x138)};
+        UnEquipObjectHook::func = a_trampoline.write_call<5>(target.address(), UnEquipObjectHook::thunk);
+    }
+    template <class T>
+    void ActorUpdateHook<T>::InstallHook() {
+        REL::Relocation<std::uintptr_t> vTable(T::VTABLE[0]);
+        func = vTable.write_vfunc(0xAD, &ActorUpdateHook::thunk);
     }
 
     void ReadyWeaponHandlerHook::thunk(RE::ReadyWeaponHandler* a_this, RE::ButtonEvent* a_event, RE::PlayerControlsData* a_data)
     {
-		if (!a_this || !a_event || !a_data) return func(a_this, a_event, a_data);
+        if (!a_this || !a_event || !a_data) {
+            return func(a_this, a_event, a_data);
+        }
 
-        auto player = RE::PlayerCharacter::GetSingleton();
+        RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
         if (!player->AsActorState()->IsWeaponDrawn()) {
 			return func(a_this, a_event, a_data);
         }
@@ -25,154 +80,141 @@ namespace Hooks {
             return func(a_this, a_event, a_data);
         }
 
-		const auto weapon_L = player->GetEquippedObject(true);
-		RE::TESForm* weapon = weapon_L ? weapon_L : player->GetEquippedObject(false);
-		if (!weapon || !weapon->IsWeapon()) return func(a_this, a_event, a_data);
-
-		SKSE::GetTaskInterface()->AddTask([player, weapon]() {
-			const auto bound = weapon->As<RE::TESBoundObject>();
-            RE::ActorEquipManager::GetSingleton()->UnequipObject(player,bound);
-            player->RemoveItem(bound,1,RE::ITEM_REMOVE_REASON::kDropping,nullptr,nullptr);
-		});
+		RE::TESForm* weapon_L = player->GetEquippedObject(true);
+		RE::TESForm* weapon_or_shield = weapon_L ? weapon_L : player->GetEquippedObject(false);
+        if (!weapon_or_shield) {
+            return func(a_this, a_event, a_data);
+        }
+        if (weapon_or_shield->IsWeapon() || weapon_or_shield->IsArmor()) {
+            SKSE::GetTaskInterface()->AddTask([player, weapon_or_shield]() {
+                RE::TESBoundObject* bound = weapon_or_shield->As<RE::TESBoundObject>();
+                RE::ActorEquipManager::GetSingleton()->UnequipObject(player, bound);
+                player->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
+            });
+        }
 
 		return func(a_this, a_event, a_data);
     }
 
     
-    void EquipObjectOverRide::InstallHook(SKSE::Trampoline& a_trampoline) {
-        const REL::Relocation<std::uintptr_t> target{RELOCATION_ID(37938, 38894), REL::VariantOffset(0xE5, 0x170, 0xE5)};
-        EquipObjectOverRide::func = a_trampoline.write_call<5>(target.address(), EquipObjectOverRide::thunk);
-    }
 
-    void EquipObjectOverRide::thunk(RE::ActorEquipManager* a_self, RE::Actor* a_actor, RE::TESBoundObject* a_object,
-                                    std::uint64_t a_unk) {
+    void EquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+                                RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot,
+                                bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow) {
 
-        if (!a_object || !a_actor || !a_self) {
-            func(a_self, a_actor, a_object, a_unk);
-            return;
+        if (!a_object || !a_actor || !a_manager) {
+            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                        a_playSounds, a_applyNow);
         }
-
-
-        if (a_object->IsWeapon()) {  // It's a weapon
-            if (const RE::ActorState* actorState = a_actor->AsActorState()) {                       // nullptr check
-                /*if (actorState->GetWeaponState()==RE::WEAPON_STATE::kWantToDraw ||
-                    actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawing) {
-					return;
-                }*/
-                if (actorState->IsWeaponDrawn()) {  // use kDrawn?
-                    
+        logger::trace("{} is Equiping {}", a_actor->GetName(), a_object->GetName());
+        
+        if (a_object->IsWeapon()) { //Or Shield, Or Spell, Or Staff, Or Scroll
+            if (Utils::IsInPospondEquipQueue(Utils::ActorInfo(a_actor))) {
+                logger::trace("{} is in Pospond Equip Queue not allowing to Equip", a_actor->GetName());
+                if (a_actor == RE::PlayerCharacter::GetSingleton()) {
+                    Utils::UpdatePospondEquipQueue(a_actor, a_object);
+                }
+                return;
+            }
+            if (RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
+                if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
                     RE::TESForm* RequippedObject = a_actor->GetEquippedObject(false);
                     RE::TESForm* LequippedObject = a_actor->GetEquippedObject(true);
 
-                    if (RequippedObject && RequippedObject->Is(RE::FormType::Weapon)) {
+                    if ((RequippedObject && RequippedObject->Is(RE::FormType::Weapon)) ||
+                        (LequippedObject && LequippedObject->Is(RE::FormType::Weapon))) {
+                        logger::trace("{} is in kDrawn Weapon State, adding to Pospond Equip Queue", a_actor->GetName());
+                        Utils::UpdatePospondEquipQueue(a_actor, a_object);
                         a_actor->DrawWeaponMagicHands(false);
-						std::unique_lock ulock(actor_queue_mutex);
-						const auto actor_info = ActorInfo(a_actor, a_object);
-						if (const auto it = actor_queue.find(actor_info); it != actor_queue.end()) {
-							actor_queue.erase(it);
-						}
-						actor_queue.insert(actor_info);
-#ifndef NDEBUG
-						logger::trace("R Weapon equipped, adding to queue {}", a_actor->GetName());
-#endif
+                        a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                         return;
-                    }
-                    if (LequippedObject) {
-						if (LequippedObject->Is(RE::FormType::Weapon)) {
-							a_actor->DrawWeaponMagicHands(false);
-							std::unique_lock ulock(actor_queue_mutex);
-                            const auto actor_info = ActorInfo(a_actor, a_object);
-							if (const auto it = actor_queue.find(actor_info); it != actor_queue.end()) {
-								actor_queue.erase(it);
-							}
-							actor_queue.insert(actor_info);
-#ifndef NDEBUG
-							logger::trace("L Weapon equipped, adding to queue {}", a_actor->GetName());
-#endif
-							return;
-                        }
-						if (LequippedObject->Is(RE::FormType::Armor)) {  // Shield
-							a_actor->DrawWeaponMagicHands(false);
-							std::unique_lock ulock(actor_queue_mutex);
-							const auto actor_info = ActorInfo(a_actor, a_object);
-							if (const auto it = actor_queue.find(actor_info); it != actor_queue.end()) {
-								actor_queue.erase(it);
-							}
-							actor_queue.insert(actor_info);
-#ifndef NDEBUG
-							logger::trace("Shield equipped, adding to queue {}", a_actor->GetName());
-#endif
-							return;
-                        }
                     }
                 }
             }
         }
-        func(a_self, a_actor, a_object, a_unk);
+        return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                    a_playSounds, a_applyNow);
     }
 
-    void Install()
-    {
-        constexpr size_t size_per_hook = 14;
-        auto& trampoline = SKSE::GetTrampoline();
-        SKSE::AllocTrampoline(size_per_hook*1);
+    void UnEquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+                                  RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot,
+                                  bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow,
+                                  const RE::BGSEquipSlot* a_slotToReplace) {
+        if (!a_object || !a_actor || !a_manager) {
+            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                        a_playSounds, a_applyNow, a_slotToReplace);
+        }
 
-		ReadyWeaponHandlerHook::InstallHook();
-        EquipObjectOverRide::InstallHook(trampoline);
-		ActorUpdateHook<RE::Character>::InstallHook();
-		ActorUpdateHook<RE::PlayerCharacter>::InstallHook();
-		UnEquipHook<RE::Character>::InstallHook();
+        logger::trace("{} is Unequiping {}", a_actor->GetName(), a_object->GetName());
 
-    }
+        if (a_object->IsWeapon()) {
+            if (Utils::IsInPospondEquipQueue(Utils::ActorInfo(a_actor))) {
+                logger::trace("{} is in Pospond Equip Queue not allowing to Unequip", a_actor->GetName());
+                return;
+            }
+            if (RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
+                if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
+                    RE::TESForm* RequippedObject = a_actor->GetEquippedObject(false);
+                    RE::TESForm* LequippedObject = a_actor->GetEquippedObject(true);
 
-    template <class T>
-	void ActorUpdateHook<T>::InstallHook() {
-		REL::Relocation<std::uintptr_t> vTable(T::VTABLE[0]);
-		func = vTable.write_vfunc(0xAD, &ActorUpdateHook::thunk);
+                    if ((RequippedObject && RequippedObject->Is(RE::FormType::Weapon)) ||
+                        (LequippedObject && LequippedObject->Is(RE::FormType::Weapon))) {
+                        logger::trace("{} is in kDrawn Weapon State, adding to Pospond Equip Queue",
+                                      a_actor->GetName());
+                        Utils::UpdatePospondEquipQueue(a_actor, a_object, true);
+                        a_actor->DrawWeaponMagicHands(false);
+                        a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                        return;
+                    }
+                }
+            }
+        }
+        return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                    a_playSounds, a_applyNow, a_slotToReplace);
     }
 
 	template <class T>
-	void ActorUpdateHook<T>::thunk(T* a_this, float a_delta) {
-		if (!a_this) return func(a_this, a_delta);
-
-        if (a_this->AsActorState()->IsWeaponDrawn()) {
-			return func(a_this, a_delta);
+    void ActorUpdateHook<T>::thunk(T* a_actor, float a_delta) {
+        if (!a_actor) {
+            return func(a_actor, a_delta);
         }
 
-        if (std::shared_lock lock(actor_queue_mutex); actor_queue.empty()) {
-		    return func(a_this, a_delta);
+        const Utils::ActorInfo dummy_actor_info = Utils::ActorInfo(a_actor);
+        if (!Utils::IsInPospondEquipQueue(dummy_actor_info)) {
+            return func(a_actor, a_delta);
         }
-        else if (const auto dummy_actor_info = ActorInfo(a_this); !actor_queue.contains(dummy_actor_info)) {
-		    return func(a_this, a_delta);
-        }
-		else {
-			const auto it = actor_queue.find(dummy_actor_info);
-            lock.unlock();
-		    RE::ActorEquipManager::GetSingleton()->EquipObject(a_this, it->queued_weap);
-            a_this->DrawWeaponMagicHands(true);
-			std::unique_lock ulock(actor_queue_mutex);
+
+        auto weapSts = a_actor->AsActorState()->GetWeaponState();
+
+        
+        RE::TESBoundObject* objectToEquip = Utils::GetObjectFromPospondEquipQueue(dummy_actor_info);
+
 #ifndef NDEBUG
-			logger::trace("Erasing from queue: {}", a_this->GetName());
+        RE::TESForm* currWeap = a_actor->GetEquippedObject(false);
+        logger::trace("ActorInfo: {} CurrWeapon {} WeaponState {} ObjToEquip {}", a_actor->GetName(),
+                      currWeap->GetName(), Helper::WeaponStateToString(weapSts), objectToEquip->GetName());
 #endif
-			actor_queue.erase(it);
+
+        // Dirty hack but somehow its working :D
+        a_actor->DrawWeaponMagicHands(false);
+
+        if (weapSts != RE::WEAPON_STATE::kSheathed) {
+            return func(a_actor, a_delta);
         }
 
-		func(a_this, a_delta);
-    }
-
-    template<class T>
-	void UnEquipHook<T>::InstallHook()
-	{
-		REL::Relocation<std::uintptr_t> vTable(T::VTABLE[0]);
-		func = vTable.write_vfunc(0xA1, &UnEquipHook::thunk);
-	}
-    template<class T>
-    void UnEquipHook<T>::thunk(T* a_this, std::uint64_t a_arg1, RE::TESBoundObject* a_object)
-    {
-		if (!a_this || !a_object) return func(a_this, a_arg1, a_object);
-		if (a_object->IsWeapon()) {
-			logger::trace("Weapon {} unequipped by {}", a_object->GetName(), a_this->GetName());
+        if (objectToEquip) {
+            if (Utils::GetUnequipFromPospondEquipQueue(dummy_actor_info)) {
+                logger::trace("Removing {} from PospondEquipQueue, no weapon to Equip", a_actor->GetName());
+                Utils::RemoveFromPospondEquipQueue(dummy_actor_info);
+                RE::ActorEquipManager::GetSingleton()->UnequipObject(a_actor, objectToEquip);
+                a_actor->DrawWeaponMagicHands(true);
+            } else {
+                logger::trace("Removing {} from PospondEquipQueue and Equiping new weapon", a_actor->GetName());
+                Utils::RemoveFromPospondEquipQueue(dummy_actor_info);
+                RE::ActorEquipManager::GetSingleton()->EquipObject(a_actor, objectToEquip);
+                a_actor->DrawWeaponMagicHands(true);
+            }
         }
-		func(a_this, a_arg1, a_object);
+        return func(a_actor, a_delta);
     }
 };
