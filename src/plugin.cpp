@@ -5,14 +5,9 @@
 void OnMessage(SKSE::MessagingInterface::Message* message) {
     if (message->type == SKSE::MessagingInterface::kDataLoaded) {
 
-        EquipEventSink* eventSink = EquipEventSink::GetSingleton();
-        RE::ScriptEventSourceHolder* eventSourceHolder = RE::ScriptEventSourceHolder::GetSingleton();
-        eventSourceHolder->AddEventSink<RE::TESEquipEvent>(eventSink);
-
-        logger::info("Event Sink created");
     }
     if (message->type == SKSE::MessagingInterface::kNewGame || message->type == SKSE::MessagingInterface::kPreLoadGame) {
-        Utils::ClearPospondEquipQueue();
+        Utils::ClearPospondQueue();
     }
 }
 

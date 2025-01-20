@@ -30,59 +30,63 @@ namespace Helper {
 
 namespace Utils {
 
-    void UpdatePospondEquipQueue(RE::Actor* a_actor, RE::TESBoundObject* a_object, bool unqeuip_flag, bool left_hand) {
-        std::unique_lock ulock(actor_queue_mutex);
-        auto actor_info = ActorInfo(a_actor, a_object, unqeuip_flag, left_hand);
-#ifndef NDEBUG
-        logger::trace("Add / Update {} with {} to PospondEquipQueue", a_actor->GetName(),
-                      unqeuip_flag ? "Nothing" : a_object->GetName());
-#endif
-        if (const auto it = actor_queue.find(actor_info); it != actor_queue.end()) {
-            actor_queue.erase(it);
+    void UpdatePospondQueue(const RefID id, std::function<void()> task) {  // Make it FIFO
+        std::unique_lock ulock(queue_mutex);
+        if (const auto it = pospond_queue.find(id); it != pospond_queue.end()) {
+            it->second = task;
+        } else {
+            pospond_queue.insert({id, task});
         }
-            actor_queue.insert(actor_info);
+#ifndef NDEBUG
+        logger::trace("Add ID: {} to Pospond Queue", id);
+#endif
     }
 
-    bool IsInPospondEquipQueue(ActorInfo actInf) {
-        std::unique_lock ulock(actor_queue_mutex);
+    bool IsInPospondQueue(const RefID id) {
+        std::unique_lock ulock(queue_mutex);
         bool res = false;
-        if (actor_queue.contains(actInf)) {
+        if (pospond_queue.contains(id)) {
             res = true;
         }
         return res;
     }
 
-    void RemoveFromPospondEquipQueue(ActorInfo actInf) {
-        std::unique_lock ulock(actor_queue_mutex);
-        if (const auto it = actor_queue.find(actInf); it != actor_queue.end()) {
+    void RemoveFromPospondQueue(const RefID id) {
+        std::unique_lock ulock(queue_mutex);
+        if (const auto it = pospond_queue.find(id); it != pospond_queue.end()) {
 #ifndef NDEBUG
-        logger::trace("Remove ID: {} with {} from PospondEquipQueue", it->baseID,
-                              it->unequip ? "Nothing" : it->queued_weap->GetName());
+            logger::trace("Remove ID: {} from Pospond Queue", id);
 #endif
-            actor_queue.erase(it);
+            pospond_queue.erase(it);
         }
     }
 
-    void ClearPospondEquipQueue() {
-        std::unique_lock ulock(actor_queue_mutex);
-        actor_queue.clear();
-    }
-
-    RE::TESBoundObject* GetObjectFromPospondEquipQueue(ActorInfo actInf) {
-        std::unique_lock ulock(actor_queue_mutex);
-        RE::TESBoundObject* res = nullptr;
-        if (const auto it = actor_queue.find(actInf); it != actor_queue.end()) {
-            res = it->queued_weap;
-        }
-        return res;
+    void ClearPospondQueue() {
+        std::unique_lock ulock(queue_mutex);
+        pospond_queue.clear();
     }
 
     
-    bool GetUnequipFromPospondEquipQueue(ActorInfo actInf) {
-        std::unique_lock ulock(actor_queue_mutex);
+    std::function<void()> GetTaskFromPospondQueue(const RefID id) {
+        std::unique_lock ulock(queue_mutex);
+        if (const auto it = pospond_queue.find(id); it != pospond_queue.end()) {
+            return it->second;
+        }
+        return nullptr;
+    }
+    
+    bool IsInHand(RE::TESBoundObject* a_object) {
         bool res = false;
-        if (const auto it = actor_queue.find(actInf); it != actor_queue.end()) {
-            res = it->unequip;
+        if (a_object->IsWeapon()) { // All types of weapons (Mele, Bows, CrossBows, Staff)
+            res = true;
+        } else if (a_object->IsArmor()) { // Improve detection it should be onlt for Shields
+            res = true;
+        } else if (a_object->Is(RE::FormType::Scroll)) {
+            res = true;
+        } else if (a_object->Is(RE::FormType::Spell)) {
+            res = true;
+        } else if (a_object->Is(RE::FormType::Light)) { // Torch, Lantern
+            res = true;
         }
         return res;
     }

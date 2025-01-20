@@ -47,13 +47,23 @@ namespace Hooks {
         func = vTable.write_vfunc(0x4, &ReadyWeaponHandlerHook::thunk);
     }
     void EquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        const REL::Relocation<std::uintptr_t> target{RELOCATION_ID(37938, 38894),
-                                                     REL::VariantOffset(0xE5, 0x170, 0xE5)};
+
+        using func_t = decltype(&RE::ActorEquipManager::EquipObject);
+        REL::Relocation<func_t> target{RE::Offset::ActorEquipManager::EquipObject,
+                                       REL::VariantOffset(0xE5, 0x170, 0xE5)};
+        //return func(this, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip, a_playSounds,  a_applyNow);
+
+        //const REL::Relocation<std::uintptr_t> target{RE::Offset::ActorEquipManager::EquipObject};
         EquipObjectHook::func = a_trampoline.write_call<5>(target.address(), EquipObjectHook::thunk);
     }
     void UnEquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        const REL::Relocation<std::uintptr_t> target{RELOCATION_ID(37945, 38901),
-                                                     REL::VariantOffset(0x138, 0x1B9, 0x138)};
+
+        using func_t = decltype(&RE::ActorEquipManager::UnequipObject);
+        REL::Relocation<func_t> target{RE::Offset::ActorEquipManager::UnequipObject,
+                                       REL::VariantOffset(0x138, 0x1B9, 0x138)};
+        //return func(this, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip, a_playSounds, a_applyNow, a_slotToReplace);
+
+        //const REL::Relocation<std::uintptr_t> target{RE::Offset::ActorEquipManager::UnequipObject};
         UnEquipObjectHook::func = a_trampoline.write_call<5>(target.address(), UnEquipObjectHook::thunk);
     }
     template <class T>
@@ -100,19 +110,36 @@ namespace Hooks {
 
     void EquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
                                 RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot,
-                                bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow) {
+                                bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow)
+    {
 
         if (!a_object || !a_actor || !a_manager) {
             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                         a_playSounds, a_applyNow);
         }
         logger::trace("{} is Equiping {}", a_actor->GetName(), a_object->GetName());
+        logger::trace("a_slot {}", a_slot->GetFormID());
         
         if (a_object->IsWeapon()) { //Or Shield, Or Spell, Or Staff, Or Scroll
-            if (Utils::IsInPospondEquipQueue(Utils::ActorInfo(a_actor))) {
+            if (Utils::IsInPospondQueue(a_actor->formID)) {
                 logger::trace("{} is in Pospond Equip Queue not allowing to Equip", a_actor->GetName());
                 if (a_actor == RE::PlayerCharacter::GetSingleton()) {
-                    Utils::UpdatePospondEquipQueue(a_actor, a_object);
+                    /*Utils::UpdatePospondQueue(a_actor->formID, [a_manager, a_actor, a_object, a_unk]() {
+                        SKSE::GetTaskInterface()->AddTask([a_manager, a_actor, a_object, a_unk]() {
+                            logger::trace("Hi I'm Pos Lambda Function");
+                            if (a_actor) {
+                                logger::trace("a_actor: {}", a_actor->GetName());
+                            }
+                            if (a_object) {
+                                logger::trace("a_object: {}", a_object->GetName());
+                            }
+                            logger::trace("DrawWeaponMagicHands");
+                            a_actor->DrawWeaponMagicHands(true);
+                            logger::trace("Calling func");
+                            RE::ActorEquipManager::GetSingleton()->EquipObject(a_actor, a_object);
+                            logger::trace("Func Called ok");
+                        });
+                    });*/
                 }
                 return;
             }
@@ -124,14 +151,31 @@ namespace Hooks {
                     if ((RequippedObject && RequippedObject->Is(RE::FormType::Weapon)) ||
                         (LequippedObject && LequippedObject->Is(RE::FormType::Weapon))) {
                         logger::trace("{} is in kDrawn Weapon State, adding to Pospond Equip Queue", a_actor->GetName());
-                        Utils::UpdatePospondEquipQueue(a_actor, a_object);
+                        /*Utils::UpdatePospondQueue(a_actor->formID, [a_manager, a_actor, a_object, a_unk]() {
+                            SKSE::GetTaskInterface()->AddTask([a_manager, a_actor, a_object, a_unk]() {
+                                logger::trace("Hi I'm Pos Lambda Function");
+                                if (a_actor) {
+                                    logger::trace("a_actor: {}", a_actor->GetName());
+                                }
+                                if (a_object) {
+                                    logger::trace("a_object: {}", a_object->GetName());
+                                }
+                                logger::trace("DrawWeaponMagicHands");
+                                a_actor->DrawWeaponMagicHands(true);
+                                logger::trace("Calling func");
+                                RE::ActorEquipManager::GetSingleton()->EquipObject(a_actor, a_object);
+                                logger::trace("Func Called ok");
+                            });
+                        });*/
                         a_actor->DrawWeaponMagicHands(false);
-                        a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                        actorState->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                         return;
                     }
                 }
             }
         }
+
+        logger::trace("call func");
         return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                     a_playSounds, a_applyNow);
     }
@@ -139,7 +183,8 @@ namespace Hooks {
     void UnEquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
                                   RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot,
                                   bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow,
-                                  const RE::BGSEquipSlot* a_slotToReplace) {
+                                  const RE::BGSEquipSlot* a_slotToReplace)
+    {
         if (!a_object || !a_actor || !a_manager) {
             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                         a_playSounds, a_applyNow, a_slotToReplace);
@@ -148,10 +193,31 @@ namespace Hooks {
         logger::trace("{} is Unequiping {}", a_actor->GetName(), a_object->GetName());
 
         if (a_object->IsWeapon()) {
-            if (Utils::IsInPospondEquipQueue(Utils::ActorInfo(a_actor))) {
+            logger::trace("{} IsWeapon", a_object->GetName());
+            if (Utils::IsInPospondQueue(a_actor->formID)) {
                 logger::trace("{} is in Pospond Equip Queue not allowing to Unequip", a_actor->GetName());
+                if (a_actor == RE::PlayerCharacter::GetSingleton()) {
+                    /*Utils::UpdatePospondQueue(a_actor->formID, [a_manager, a_actor, a_object, a_extraData, a_unk]() {
+                        SKSE::GetTaskInterface()->AddTask([a_manager, a_actor, a_object, a_extraData, a_unk]() {
+                            logger::trace("Hi I'm Pos Lambda Function");
+                            if (a_actor) {
+                                logger::trace("a_actor: {}", a_actor->GetName());
+                            }
+                            if (a_object) {
+                                logger::trace("a_object: {}", a_object->GetName());
+                            }
+                            logger::trace("DrawWeaponMagicHands");
+                            a_actor->DrawWeaponMagicHands(true);
+                            logger::trace("Calling func");
+                            RE::ActorEquipManager::GetSingleton()->UnequipObject(a_actor, a_object);
+                            logger::trace("Func Called ok");
+                        });
+                    });*/
+                }
                 return;
             }
+
+            logger::trace("{} is NOT IsInPospondQueue", a_actor->GetName());
             if (RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
                 if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
                     RE::TESForm* RequippedObject = a_actor->GetEquippedObject(false);
@@ -161,9 +227,25 @@ namespace Hooks {
                         (LequippedObject && LequippedObject->Is(RE::FormType::Weapon))) {
                         logger::trace("{} is in kDrawn Weapon State, adding to Pospond Equip Queue",
                                       a_actor->GetName());
-                        Utils::UpdatePospondEquipQueue(a_actor, a_object, true);
+                        /*Utils::UpdatePospondQueue(
+                            a_actor->formID, [a_manager, a_actor, a_object, a_extraData, a_unk]() {
+                                SKSE::GetTaskInterface()->AddTask([a_manager, a_actor, a_object, a_extraData, a_unk]() {
+                                    logger::trace("Hi I'm Pos Lambda Function");
+                                    if (a_actor) {
+                                        logger::trace("a_actor: {}", a_actor->GetName());
+                                    }
+                                    if (a_object) {
+                                        logger::trace("a_object: {}", a_object->GetName());
+                                    }
+                                    logger::trace("DrawWeaponMagicHands");
+                                    a_actor->DrawWeaponMagicHands(true);
+                                    logger::trace("Calling func");
+                                    RE::ActorEquipManager::GetSingleton()->UnequipObject(a_actor, a_object);
+                                    logger::trace("Func Called ok");
+                                });
+                            });*/
                         a_actor->DrawWeaponMagicHands(false);
-                        a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                        actorState->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                         return;
                     }
                 }
@@ -179,41 +261,18 @@ namespace Hooks {
             return func(a_actor, a_delta);
         }
 
-        const Utils::ActorInfo dummy_actor_info = Utils::ActorInfo(a_actor);
-        if (!Utils::IsInPospondEquipQueue(dummy_actor_info)) {
+        if (!Utils::IsInPospondQueue(a_actor->formID)) {
             return func(a_actor, a_delta);
-        }
+        }        
 
-        auto weapSts = a_actor->AsActorState()->GetWeaponState();
-
-        
-        RE::TESBoundObject* objectToEquip = Utils::GetObjectFromPospondEquipQueue(dummy_actor_info);
-
-#ifndef NDEBUG
-        RE::TESForm* currWeap = a_actor->GetEquippedObject(false);
-        logger::trace("ActorInfo: {} CurrWeapon {} WeaponState {} ObjToEquip {}", a_actor->GetName(),
-                      currWeap->GetName(), Helper::WeaponStateToString(weapSts), objectToEquip->GetName());
-#endif
-
-        // Dirty hack but somehow its working :D
-        a_actor->DrawWeaponMagicHands(false);
-
-        if (weapSts != RE::WEAPON_STATE::kSheathed) {
-            return func(a_actor, a_delta);
-        }
-
-        if (objectToEquip) {
-            if (Utils::GetUnequipFromPospondEquipQueue(dummy_actor_info)) {
-                logger::trace("Removing {} from PospondEquipQueue, no weapon to Equip", a_actor->GetName());
-                Utils::RemoveFromPospondEquipQueue(dummy_actor_info);
-                RE::ActorEquipManager::GetSingleton()->UnequipObject(a_actor, objectToEquip);
-                a_actor->DrawWeaponMagicHands(true);
-            } else {
-                logger::trace("Removing {} from PospondEquipQueue and Equiping new weapon", a_actor->GetName());
-                Utils::RemoveFromPospondEquipQueue(dummy_actor_info);
-                RE::ActorEquipManager::GetSingleton()->EquipObject(a_actor, objectToEquip);
-                a_actor->DrawWeaponMagicHands(true);
+        if (RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
+            if (actorState->GetWeaponState() != RE::WEAPON_STATE::kSheathed) {
+                return func(a_actor, a_delta);
             }
+            std::function<void()> pospondedeFunc = Utils::GetTaskFromPospondQueue(a_actor->formID);
+            logger::trace("Removing {} from PospondEquipQueue", a_actor->GetName());
+            Utils::RemoveFromPospondQueue(a_actor->formID);
+            pospondedeFunc();
         }
         return func(a_actor, a_delta);
     }
