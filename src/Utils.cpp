@@ -61,12 +61,8 @@ namespace Utils {
     }
 
     bool IsInQueue(const RE::FormID actID) {
-        std::unique_lock ulock(actor_queue_mutex);
-        bool res = false;
-        if (actor_queue.contains(actID)) {
-            res = true;
-        }
-        return res;
+        std::shared_lock ulock(actor_queue_mutex);
+		return actor_queue.contains(actID);
     }
 
     void RemoveFromQueue(const RE::FormID actID) {
@@ -82,7 +78,7 @@ namespace Utils {
     }
 
     std::queue<EquipEvent> GetQueue(const RE::FormID actID) {
-        std::unique_lock ulock(actor_queue_mutex);
+        std::shared_lock ulock(actor_queue_mutex);
         std::queue<EquipEvent> res;
         if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
             res = it->second;
