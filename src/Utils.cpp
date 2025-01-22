@@ -4,7 +4,6 @@ namespace Helper {
 
     std::string WeaponStateToString(RE::WEAPON_STATE state) {
         std::string res = "Unk";
-
         if (state == RE::WEAPON_STATE::kSheathed) {
             res = "kSheathed";
         }
@@ -23,66 +22,82 @@ namespace Helper {
         if (state == RE::WEAPON_STATE::kWantToSheathe) {
             res = "kWantToSheathe";
         }
+        return res;
+    }
 
+    std::string GetSlotAsString(RE::FormID slotID) { 
+        std::string res = "Unk";
+        switch (slotID) {
+            case (81730):
+                res = "Right";
+                break;
+            case (81731):
+                res = "Left";
+                break;
+            case (81733):
+                res = "Both";
+                break;
+            case (82408):
+                res = "Shield";
+                break;
+        }
         return res;
     }
 }
 
 namespace Utils {
 
-    void UpdatePospondEquipQueue(RE::Actor* a_actor, RE::TESBoundObject* a_object, bool unqeuip_flag, bool left_hand) {
+    void UpdateQueue(RE::FormID actID, EquipEvent equipdata) {
         std::unique_lock ulock(actor_queue_mutex);
-        auto actor_info = ActorInfo(a_actor, a_object, unqeuip_flag, left_hand);
-#ifndef NDEBUG
-        logger::trace("Add / Update {} with {} to PospondEquipQueue", a_actor->GetName(),
-                      unqeuip_flag ? "Nothing" : a_object->GetName());
-#endif
-        if (const auto it = actor_queue.find(actor_info); it != actor_queue.end()) {
-            actor_queue.erase(it);
+        if (const auto it = actor_queue.find(actID); it != actor_queue.end()) { // actor already tracked, add next event to the queue
+            it->second.push(equipdata);
+        } else { // actor not tracked
+            std::queue<EquipEvent> temp_queue;
+            temp_queue.push(equipdata);
+            actor_queue.insert({actID, temp_queue});
         }
-            actor_queue.insert(actor_info);
     }
 
-    bool IsInPospondEquipQueue(ActorInfo actInf) {
+    bool IsInQueue(RE::FormID actID) {
         std::unique_lock ulock(actor_queue_mutex);
         bool res = false;
-        if (actor_queue.contains(actInf)) {
+        if (actor_queue.contains(actID)) {
             res = true;
         }
         return res;
     }
 
-    void RemoveFromPospondEquipQueue(ActorInfo actInf) {
+    void RemoveFromQueue(RE::FormID actID) {
         std::unique_lock ulock(actor_queue_mutex);
-        if (const auto it = actor_queue.find(actInf); it != actor_queue.end()) {
-#ifndef NDEBUG
-        logger::trace("Remove ID: {} with {} from PospondEquipQueue", it->baseID,
-                              it->unequip ? "Nothing" : it->queued_weap->GetName());
-#endif
+        if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
             actor_queue.erase(it);
         }
     }
 
-    void ClearPospondEquipQueue() {
+    void ClearQueue() {
         std::unique_lock ulock(actor_queue_mutex);
         actor_queue.clear();
     }
 
-    RE::TESBoundObject* GetObjectFromPospondEquipQueue(ActorInfo actInf) {
+    std::queue<EquipEvent> GetQueue(RE::FormID actID) {
         std::unique_lock ulock(actor_queue_mutex);
-        RE::TESBoundObject* res = nullptr;
-        if (const auto it = actor_queue.find(actInf); it != actor_queue.end()) {
-            res = it->queued_weap;
+        std::queue<EquipEvent> res;
+        if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
+            res = it->second;
         }
         return res;
     }
 
-    
-    bool GetUnequipFromPospondEquipQueue(ActorInfo actInf) {
-        std::unique_lock ulock(actor_queue_mutex);
+    bool IsInHand(RE::TESBoundObject* a_object) {
         bool res = false;
-        if (const auto it = actor_queue.find(actInf); it != actor_queue.end()) {
-            res = it->unequip;
+        if (a_object->IsWeapon()) {
+            res = true;
+        } else if (a_object->IsArmor() && a_object->As<RE::TESObjectARMO>()->GetEquipSlot()->formID == 82408) { 
+            res = true;
+        } else if (a_object->Is(RE::FormType::Light)) { //Equipable Lights 
+            res = true;
+        } else if (a_object->Is(RE::FormType::Scroll)) {
+            res = true;
         }
         return res;
     }
