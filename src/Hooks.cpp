@@ -116,8 +116,8 @@ namespace Hooks {
                     if (a_slot) {
                         if (((a_slot->GetFormID() == 81731) && (LeftHandObj == nullptr)) || 
                             ((a_slot->GetFormID() == 82408) && (LeftHandObj == nullptr)) ||
-                            ((a_slot->GetFormID() == 81731) && (LeftHandObj->Is(RE::FormType::Spell))) ||
-                            ((a_slot->GetFormID() == 81730) && (RightHandObj->Is(RE::FormType::Spell))) || 
+                            ((a_slot->GetFormID() == 81731) && (LeftHandObj) && (LeftHandObj->Is(RE::FormType::Spell))) ||
+                            ((a_slot->GetFormID() == 81730) && (RightHandObj) && (RightHandObj->Is(RE::FormType::Spell))) || 
                             ((a_slot->GetFormID() == 81730) && (RightHandObj == nullptr))) {
                             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
                                         a_forceEquip, a_playSounds, a_applyNow);
@@ -165,8 +165,8 @@ namespace Hooks {
                     const RE::BGSEquipSlot* slot = *a_slot;
                     if (((slot->GetFormID() == 81731) && (LeftHandObj == nullptr)) ||
                         ((slot->GetFormID() == 81730) && (RightHandObj == nullptr)) ||
-                        ((slot->GetFormID() == 81731) && (LeftHandObj->Is(RE::FormType::Spell))) ||
-                        ((slot->GetFormID() == 81730) && (RightHandObj->Is(RE::FormType::Spell)))) {
+                        ((slot->GetFormID() == 81731) && (LeftHandObj) && (LeftHandObj->Is(RE::FormType::Spell))) ||
+                        ((slot->GetFormID() == 81730) && (RightHandObj) && (RightHandObj->Is(RE::FormType::Spell)))) {
                         return func(a_manager, a_actor, a_spell, a_slot);
                     }
                 }
