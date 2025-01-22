@@ -1,9 +1,5 @@
-#ifndef UTILS_H
-#define UTILS_H
-
-#include <functional>
+#pragma once
 #include <shared_mutex>
-#include<unordered_set>
 
 namespace Helper {
 
@@ -28,7 +24,7 @@ namespace Utils {
         RE::SpellItem* spell = nullptr;
     };
     
-    void UpdateQueue(RE::FormID actID, EquipEvent equipdata);
+    void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata);
     bool IsInQueue(RE::FormID actID);
     void RemoveFromQueue(RE::FormID actID);
     void ClearQueue();
@@ -40,5 +36,3 @@ namespace Utils {
 	inline std::shared_mutex actor_queue_mutex;
     inline std::unordered_map<RE::FormID, std::queue<EquipEvent>> actor_queue;
 }
-
-#endif  // UTILS_H
