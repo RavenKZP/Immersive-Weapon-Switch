@@ -265,10 +265,7 @@ namespace Hooks {
                 }
                 Utils::RemoveFromQueue(a_actor->formID);
             }
-            std::function<void()> pospondedeFunc = Utils::GetTaskFromPospondQueue(a_actor->formID);
-            logger::trace("Removing {} from PospondEquipQueue", a_actor->GetName());
-            Utils::RemoveFromPospondQueue(a_actor->formID);
-            pospondedeFunc();
+          
         }
         return func(a_actor, a_delta);
     }
