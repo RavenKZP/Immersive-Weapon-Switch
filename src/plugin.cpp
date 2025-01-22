@@ -1,4 +1,3 @@
-#include "Events.h"
 #include "Hooks.h"
 #include "Utils.h"
 
@@ -7,7 +6,7 @@ void OnMessage(SKSE::MessagingInterface::Message* message) {
 
     }
     if (message->type == SKSE::MessagingInterface::kNewGame || message->type == SKSE::MessagingInterface::kPreLoadGame) {
-        Utils::ClearPospondQueue();
+        Utils::ClearQueue();
     }
 }
 
@@ -37,6 +36,6 @@ SKSEPluginLoad(const SKSE::LoadInterface *skse) {
     logger::info("Plugin loaded");
     SKSE::Init(skse);
     Hooks::Install();
-    //SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
+    SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
     return true;
 }
