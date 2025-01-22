@@ -2,7 +2,7 @@
 
 namespace Helper {
 
-    std::string WeaponStateToString(RE::WEAPON_STATE state) {
+    std::string WeaponStateToString(const RE::WEAPON_STATE state) {
         std::string res = "Unk";
         if (state == RE::WEAPON_STATE::kSheathed) {
             res = "kSheathed";
@@ -25,7 +25,7 @@ namespace Helper {
         return res;
     }
 
-    std::string GetSlotAsString(RE::FormID slotID) { 
+    std::string GetSlotAsString(const RE::FormID slotID) { 
         std::string res = "Unk";
         switch (slotID) {
             case (81730):
@@ -40,6 +40,8 @@ namespace Helper {
             case (82408):
                 res = "Shield";
                 break;
+            default: 
+                break;
         }
         return res;
     }
@@ -47,7 +49,7 @@ namespace Helper {
 
 namespace Utils {
 
-    void UpdateQueue(RE::FormID actID, EquipEvent equipdata) {
+    void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata) {
         std::unique_lock ulock(actor_queue_mutex);
         if (const auto it = actor_queue.find(actID); it != actor_queue.end()) { // actor already tracked, add next event to the queue
             it->second.push(equipdata);
@@ -58,16 +60,12 @@ namespace Utils {
         }
     }
 
-    bool IsInQueue(RE::FormID actID) {
-        std::unique_lock ulock(actor_queue_mutex);
-        bool res = false;
-        if (actor_queue.contains(actID)) {
-            res = true;
-        }
-        return res;
+    bool IsInQueue(const RE::FormID actID) {
+        std::shared_lock ulock(actor_queue_mutex);
+		return actor_queue.contains(actID);
     }
 
-    void RemoveFromQueue(RE::FormID actID) {
+    void RemoveFromQueue(const RE::FormID actID) {
         std::unique_lock ulock(actor_queue_mutex);
         if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
             actor_queue.erase(it);
@@ -79,8 +77,8 @@ namespace Utils {
         actor_queue.clear();
     }
 
-    std::queue<EquipEvent> GetQueue(RE::FormID actID) {
-        std::unique_lock ulock(actor_queue_mutex);
+    std::queue<EquipEvent> GetQueue(const RE::FormID actID) {
+        std::shared_lock ulock(actor_queue_mutex);
         std::queue<EquipEvent> res;
         if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
             res = it->second;
@@ -89,16 +87,19 @@ namespace Utils {
     }
 
     bool IsInHand(RE::TESBoundObject* a_object) {
-        bool res = false;
-        if (a_object->IsWeapon()) {
-            res = true;
-        } else if (a_object->IsArmor() && a_object->As<RE::TESObjectARMO>()->GetEquipSlot()->formID == 82408) { 
-            res = true;
-        } else if (a_object->Is(RE::FormType::Light)) { //Equipable Lights 
-            res = true;
-        } else if (a_object->Is(RE::FormType::Scroll)) {
-            res = true;
+        if (const auto a_formtype = a_object->GetFormType();
+            a_formtype == RE::FormType::Weapon ||
+            a_formtype == RE::FormType::Light ||
+            a_formtype == RE::FormType::Scroll
+            ) {
+			return true;
         }
-        return res;
+		else if (a_formtype == RE::FormType::Armor) {
+			if (const auto equip_slot = a_object->As<RE::TESObjectARMO>()->GetEquipSlot(); 
+                equip_slot && equip_slot->GetFormID() == 82408) {
+				return true;
+			}
+		}
+		return false;
     }
 }
