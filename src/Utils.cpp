@@ -87,6 +87,9 @@ namespace Utils {
     }
 
     bool IsInHand(RE::TESBoundObject* a_object) {
+        if (a_object == nullptr) { // Empty hand
+            return true;
+        }
         if (const auto a_formtype = a_object->GetFormType();
             a_formtype == RE::FormType::Weapon ||
             a_formtype == RE::FormType::Light ||
@@ -96,10 +99,42 @@ namespace Utils {
         }
 		else if (a_formtype == RE::FormType::Armor) {
 			if (const auto equip_slot = a_object->As<RE::TESObjectARMO>()->GetEquipSlot(); 
-                equip_slot && equip_slot->GetFormID() == 82408) {
+                equip_slot && equip_slot->GetFormID() == EquipSlots::Shield) {
 				return true;
 			}
 		}
 		return false;
+    }
+
+    bool IsHandFree(RE::FormID slotID, RE::Actor* actor) {
+        const RE::TESForm* RightHandObj = actor->GetEquippedObject(false);
+        const RE::TESForm* LeftHandObj = actor->GetEquippedObject(true);
+
+        if ((slotID == EquipSlots::LeftHand) && (LeftHandObj == nullptr)) {  // Left hand Equip when Left hand empty
+            return true;
+        }
+        if ((slotID == EquipSlots::Shield) && (LeftHandObj == nullptr)) { // Left shield Equip when Left hand empty
+            return true;
+        }
+        if ((slotID == EquipSlots::RightHand) && (RightHandObj == nullptr)) { // Left hand Equip when Right hand empty
+            return true;
+        }
+        if ((slotID == EquipSlots::LeftHand) && (LeftHandObj)) {  // Left hand not empty
+            if (LeftHandObj->Is(RE::FormType::Spell)) {
+                return true;
+            }
+            if (LeftHandObj->Is(RE::FormType::Scroll)) {
+                return true;
+            }
+        }
+        if ((slotID == EquipSlots::RightHand) && (RightHandObj)) {  // Right hand not empty
+            if (RightHandObj->Is(RE::FormType::Spell)) {
+                return true;
+            }
+            if (RightHandObj->Is(RE::FormType::Scroll)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

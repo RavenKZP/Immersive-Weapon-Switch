@@ -23,6 +23,9 @@ namespace Utils {
         //Spells use Actor, SpellItem, BGSEquipSlot
         RE::SpellItem* spell = nullptr;
     };
+
+    const enum EquipSlots { RightHand = 81730, LeftHand = 81731, Shield = 82408
+    };
     
     void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata);
     bool IsInQueue(RE::FormID actID);
@@ -32,6 +35,8 @@ namespace Utils {
 
     //Returns true whenever given object is equipable in left, right or both hands
     bool IsInHand(RE::TESBoundObject* a_object);
+    //Returns True whenever hand is empty or equiped with scroll/spell
+    bool IsHandFree(RE::FormID slotID, RE::Actor* actor);
     
 	inline std::shared_mutex actor_queue_mutex;
     inline std::unordered_map<RE::FormID, std::queue<EquipEvent>> actor_queue;

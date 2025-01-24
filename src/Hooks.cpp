@@ -1,20 +1,6 @@
 #include "Hooks.h"
 #include "Utils.h"
 
-
-// ToDo and Ideas
-// 
-// General/New hooks?
-// ToDo: Inventory showing what item will be quiped (like it's equiped now)
-//
-// When PC start combat (in town), and change weapon NPC stop combat
-// Because NPC stop combat when PC is Sheatling a weapon
-//
-// ReadyWeaponHandlerHook
-// ToDo: Add some force to object (like in Grab and throw)
-// ToDo: Call attack unarmed Letf or Right hand (Or some vanilla animation tah can fit)
-
-
 namespace Hooks {
 
     void Install() {
@@ -82,7 +68,6 @@ namespace Hooks {
         if (weapon_or_shield->IsWeapon() || weapon_or_shield->IsArmor()) {
             SKSE::GetTaskInterface()->AddTask([player, weapon_or_shield]() {
                 RE::TESBoundObject* bound = weapon_or_shield->As<RE::TESBoundObject>();
-                //RE::ActorEquipManager::GetSingleton()->UnequipObject(player, bound);
                 player->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
             });
         }
@@ -93,14 +78,15 @@ namespace Hooks {
     void EquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
                                 RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot,
                                 bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow) {
-        if (!a_object || !a_actor || !a_manager) {
+        if (!a_actor || !a_manager) {
             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                         a_playSounds, a_applyNow);
         }
 
         if (Utils::IsInHand(a_object)) {
             if (Utils::IsInQueue(a_actor->GetFormID())) {
-                logger::trace("{} is in Queue not allowing to Equip {}", a_actor->GetName(), a_object->GetName());
+                logger::trace("{} is in Queue not allowing to Equip {}, Adding to Queue", a_actor->GetName(),
+                              a_object ? a_object->GetName() : "Nothing");
                 const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,      a_slot,
                                              a_queueEquip, a_forceEquip, a_playSounds, a_applyNow};
                 UpdateQueue(a_actor->GetFormID(), EquipEvent);
@@ -109,35 +95,26 @@ namespace Hooks {
             if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
                 if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
 
-                    const RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-                    const RE::TESForm* RightHandObj = player->GetEquippedObject(false);
-                    const RE::TESForm* LeftHandObj = player->GetEquippedObject(true);
-
                     if (a_slot) {
-                        if (((a_slot->GetFormID() == 81731) && (LeftHandObj == nullptr)) || 
-                            ((a_slot->GetFormID() == 82408) && (LeftHandObj == nullptr)) ||
-                            ((a_slot->GetFormID() == 81731) && (LeftHandObj) && (LeftHandObj->Is(RE::FormType::Spell))) ||
-                            ((a_slot->GetFormID() == 81730) && (RightHandObj) && (RightHandObj->Is(RE::FormType::Spell))) || 
-                            ((a_slot->GetFormID() == 81730) && (RightHandObj == nullptr))) {
+                        if (Utils::IsHandFree(a_slot->GetFormID(), a_actor)) {
                             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
                                         a_forceEquip, a_playSounds, a_applyNow);
                         }
                     }
 
                     logger::trace("{} is in kDrawn Weapon State, adding to Queue with {}", a_actor->GetName(),
-                                  a_object->GetName());
+                                  a_object ? a_object->GetName() : "Nothing");
 
                     const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,      a_slot,
                                                  a_queueEquip, a_forceEquip, a_playSounds, a_applyNow};
                     UpdateQueue(a_actor->GetFormID(), EquipEvent);
                     a_actor->DrawWeaponMagicHands(false);
-                    a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                    a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;                
                     return;
                 }
             }
         }
 
-        logger::trace("call func");
         return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                     a_playSounds, a_applyNow);
     }
@@ -148,7 +125,7 @@ namespace Hooks {
         }
 
         if (Utils::IsInQueue(a_actor->GetFormID())) {
-            logger::trace("{} is in Queue not allowing to Equip {}", a_actor->GetName(), a_spell->GetName());
+            logger::trace("{} is in Queue not allowing to Equip {}, Adding to Queue", a_actor->GetName(), a_spell->GetName());
 
             const Utils::EquipEvent EquipEvent{nullptr, nullptr, 1, *a_slot, true, false, true, false, true, a_spell};
             UpdateQueue(a_actor->GetFormID(), EquipEvent);
@@ -157,16 +134,9 @@ namespace Hooks {
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
             if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
 
-                const RE::PlayerCharacter* player = RE::PlayerCharacter::GetSingleton();
-                const RE::TESForm* RightHandObj = player->GetEquippedObject(false);
-                const RE::TESForm* LeftHandObj = player->GetEquippedObject(true);
-
                 if (a_slot) {
                     const RE::BGSEquipSlot* slot = *a_slot;
-                    if (((slot->GetFormID() == 81731) && (LeftHandObj == nullptr)) ||
-                        ((slot->GetFormID() == 81730) && (RightHandObj == nullptr)) ||
-                        ((slot->GetFormID() == 81731) && (LeftHandObj) && (LeftHandObj->Is(RE::FormType::Spell))) ||
-                        ((slot->GetFormID() == 81730) && (RightHandObj) && (RightHandObj->Is(RE::FormType::Spell)))) {
+                    if (Utils::IsHandFree(slot->GetFormID(), a_actor)) {
                         return func(a_manager, a_actor, a_spell, a_slot);
                     }
                 }
@@ -196,7 +166,7 @@ namespace Hooks {
 
         if (Utils::IsInHand(a_object)) {
             if (Utils::IsInQueue(a_actor->GetFormID())) {
-                logger::trace("{} is in Queue not allowing to Unequip {}", a_actor->GetName(),
+                logger::trace("{} is in Queue not allowing to Unequip {}, Adding to Queue", a_actor->GetName(),
                               a_object->GetName());
                 const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,      a_slot,
                                              a_queueEquip, a_forceEquip, a_playSounds, a_applyNow, false};
@@ -204,7 +174,6 @@ namespace Hooks {
                 return;
             }
 
-            logger::trace("{} is NOT IsInPospondQueue", a_actor->GetName());
             if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
                 if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
                     logger::trace("{} is in kDrawn Weapon State, adding to Queue with {}", a_actor->GetName(),
@@ -230,10 +199,20 @@ namespace Hooks {
         }
         if (!Utils::IsInQueue(a_actor->GetFormID())) {
             return func(a_actor, a_delta);
-        }        
+        }
 
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
-            if (actorState->GetWeaponState() != RE::WEAPON_STATE::kSheathed) {
+            RE::WEAPON_STATE weaponState = actorState->GetWeaponState();
+
+            if ((weaponState == RE::WEAPON_STATE::kDrawn) || 
+                (weaponState == RE::WEAPON_STATE::kDrawing) ||
+                (weaponState == RE::WEAPON_STATE::kWantToDraw)) {
+                a_actor->DrawWeaponMagicHands(false);
+                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                return func(a_actor, a_delta);
+            }
+
+            if (weaponState != RE::WEAPON_STATE::kSheathed) {
                 return func(a_actor, a_delta);
             }
             logger::trace("{} Can now perform all actions from, Queue", a_actor->GetName());
@@ -241,11 +220,7 @@ namespace Hooks {
             while (!equipQueue.empty()) {
                 if (const Utils::EquipEvent& currEvent = equipQueue.front(); currEvent.equip) {
                     if (currEvent.spell) {
-                        if (!currEvent.slot) {
-                            logger::trace("slot is nullptr <PANIC>");
-                        }
-                        logger::trace("{} Equipping spell: {} to slot nr {}", a_actor->GetName(), currEvent.spell->GetName(),
-                                      currEvent.slot->GetFormID());
+                        logger::trace("Equipping spell: {}", currEvent.spell->GetName());
                         RE::ActorEquipManager::GetSingleton()->EquipSpell(a_actor, currEvent.spell, currEvent.slot);
                     } else {
                         logger::trace("Equipping: {}", currEvent.object->GetName());

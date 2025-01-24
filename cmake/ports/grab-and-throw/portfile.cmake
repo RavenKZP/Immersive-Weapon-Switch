@@ -1,0 +1,13 @@
+# header-only library
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO powerof3/GrabAndThrow
+    REF 559dd7729a2f41415536bcf4b7913f786b818325
+    SHA512 19b49d0f904130ab02805b1c733068c2bff0e8f7f1bf7e0d7b8c6aa8952ec40fe029bbf820bc8df1923358691ea222d2035e7c4ce89e1e33a3aa56115992d354
+    HEAD_REF master
+)
+
+# Install codes
+set(GRABANDTHROW_SOURCE	${SOURCE_PATH}/include/GrabAndThrow)
+file(INSTALL ${GRABANDTHROW_SOURCE} DESTINATION ${CURRENT_PACKAGES_DIR}/include)
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")
