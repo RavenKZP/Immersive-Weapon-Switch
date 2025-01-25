@@ -23,6 +23,13 @@ namespace Hooks {
         static inline REL::Relocation<decltype(thunk)> func;
     };
 
+	struct EquipObjectUoTHook {
+        static void InstallHook(SKSE::Trampoline& a_trampoline);
+        static void thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+                          std::uint64_t a_unk);
+        static inline REL::Relocation<decltype(thunk)> func;
+    };
+
 	struct EquipSpellHook {
         static void InstallHook(SKSE::Trampoline& a_trampoline);
         static void thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::SpellItem* a_spell,

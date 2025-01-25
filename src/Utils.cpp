@@ -90,6 +90,9 @@ namespace Utils {
         if (a_object == nullptr) { // Empty hand
             return true;
         }
+        if (a_object->GetFormID() == 500) { //brawl
+            return true;
+        }
         if (const auto a_formtype = a_object->GetFormType();
             a_formtype == RE::FormType::Weapon ||
             a_formtype == RE::FormType::Light ||
@@ -119,7 +122,22 @@ namespace Utils {
         if ((slotID == EquipSlots::RightHand) && (RightHandObj == nullptr)) { // Left hand Equip when Right hand empty
             return true;
         }
+        if (RightHandObj && RightHandObj->GetFormID() == 500) {  // Brawl
+            return true;
+        }
+        if (LeftHandObj && LeftHandObj->GetFormID() == 500) {  // Brawl
+            return true;
+        }
+
         if ((slotID == EquipSlots::LeftHand) && (LeftHandObj)) {  // Left hand not empty
+            if (LeftHandObj->Is(RE::FormType::Spell)) {
+                return true;
+            }
+            if (LeftHandObj->Is(RE::FormType::Scroll)) {
+                return true;
+            }
+        }
+        if ((slotID == EquipSlots::Shield) && (LeftHandObj)) {  // Left hand not empty
             if (LeftHandObj->Is(RE::FormType::Spell)) {
                 return true;
             }
@@ -136,5 +154,23 @@ namespace Utils {
             }
         }
         return false;
+    }
+
+    void UpdateInventory(RE::TESObjectREFR* a_obj_refr, RE::TESBoundObject* object, RE::ExtraDataList* a_extra) {
+        /*auto player = RE::PlayerCharacter::GetSingleton();
+        if (!player) {
+            return;
+        }
+
+        auto inventory = player->GetInventory(); 
+        for (auto& [item, data] : inventory) {
+            auto& [count, entryData] = data;
+            if (item == object && entryData) {
+                RE::InventoryEntryData auto extradata = entryData->extraLists.GetByType(RE::ExtraDataType::kWorn);
+                extradata;
+            } else if (entryData) {
+            }
+        }
+        */
     }
 }

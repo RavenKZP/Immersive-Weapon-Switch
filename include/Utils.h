@@ -37,6 +37,8 @@ namespace Utils {
     bool IsInHand(RE::TESBoundObject* a_object);
     //Returns True whenever hand is empty or equiped with scroll/spell
     bool IsHandFree(RE::FormID slotID, RE::Actor* actor);
+
+    void UpdateInventory(RE::TESObjectREFR* a_obj_refr, RE::TESBoundObject* object, RE::ExtraDataList* a_extra);
     
 	inline std::shared_mutex actor_queue_mutex;
     inline std::unordered_map<RE::FormID, std::queue<EquipEvent>> actor_queue;
