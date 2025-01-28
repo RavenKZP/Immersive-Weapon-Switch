@@ -24,7 +24,7 @@ namespace Utils {
         RE::SpellItem* spell = nullptr;
     };
 
-    const enum EquipSlots { RightHand = 81730, LeftHand = 81731, Shield = 82408
+    const enum EquipSlots { Shield = 82408, Right = 81730, Left = 81731, Both = 81733
     };
     
     void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata);
@@ -33,13 +33,23 @@ namespace Utils {
     void ClearQueue();
     std::queue<EquipEvent> GetQueue(RE::FormID actID);
 
+    void InitConsts();
+
     //Returns true whenever given object is equipable in left, right or both hands
     bool IsInHand(RE::TESBoundObject* a_object);
     //Returns True whenever hand is empty or equiped with scroll/spell
     bool IsHandFree(RE::FormID slotID, RE::Actor* actor);
+    //Returns true if dropped
+    bool DropIfLowHP(RE::Actor* actor);
 
     void UpdateInventory(RE::TESObjectREFR* a_obj_refr, RE::TESBoundObject* object, RE::ExtraDataList* a_extra);
     
 	inline std::shared_mutex actor_queue_mutex;
     inline std::unordered_map<RE::FormID, std::queue<EquipEvent>> actor_queue;
+
+    inline const RE::BGSEquipSlot* right_hand_slot{};
+    inline const RE::BGSEquipSlot* left_hand_slot{};
+    inline RE::TESBoundObject* unarmed_weapon;
+
+    inline bool Mod_Active = true;
 }

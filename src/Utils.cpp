@@ -1,3 +1,4 @@
+#include "Settings.h"
 #include "Utils.h"
 
 namespace Helper {
@@ -86,6 +87,14 @@ namespace Utils {
         return res;
     }
 
+    void InitConsts() {
+        /* WIP
+        unarmed_weapon = RE::TESForm::LookupByID(0x1f4)->As<RE::TESBoundObject>();
+        Utils::right_hand_slot = RE::BGSDefaultObjectManager::GetSingleton()->GetObject<RE::BGSEquipSlot>(RE::DEFAULT_OBJECT::kRightHandEquip);
+        Utils::left_hand_slot = RE::BGSDefaultObjectManager::GetSingleton()->GetObject<RE::BGSEquipSlot>(RE::DEFAULT_OBJECT::kLeftHandEquip);
+        */
+    }
+
     bool IsInHand(RE::TESBoundObject* a_object) {
         if (a_object == nullptr) { // Empty hand
             return true;
@@ -113,13 +122,18 @@ namespace Utils {
         const RE::TESForm* RightHandObj = actor->GetEquippedObject(false);
         const RE::TESForm* LeftHandObj = actor->GetEquippedObject(true);
 
-        if ((slotID == EquipSlots::LeftHand) && (LeftHandObj == nullptr)) {  // Left hand Equip when Left hand empty
+        if ((slotID == EquipSlots::Left) && (LeftHandObj == nullptr)) {  // Left hand Equip when Left hand empty
             return true;
         }
         if ((slotID == EquipSlots::Shield) && (LeftHandObj == nullptr)) { // Left shield Equip when Left hand empty
             return true;
         }
-        if ((slotID == EquipSlots::RightHand) && (RightHandObj == nullptr)) { // Left hand Equip when Right hand empty
+        if ((slotID == EquipSlots::Right) && (RightHandObj == nullptr)) { // Left hand Equip when Right hand empty
+            return true;
+        }
+        if ((slotID == EquipSlots::Both) && 
+            (RightHandObj == nullptr) &&
+            (LeftHandObj == nullptr)) {  // Both hand Equip when Right and Left hand empty
             return true;
         }
         if (RightHandObj && RightHandObj->GetFormID() == 500) {  // Brawl
@@ -129,7 +143,7 @@ namespace Utils {
             return true;
         }
 
-        if ((slotID == EquipSlots::LeftHand) && (LeftHandObj)) {  // Left hand not empty
+        if ((slotID == EquipSlots::Left) && (LeftHandObj)) {  // Left hand not empty
             if (LeftHandObj->Is(RE::FormType::Spell)) {
                 return true;
             }
@@ -145,7 +159,7 @@ namespace Utils {
                 return true;
             }
         }
-        if ((slotID == EquipSlots::RightHand) && (RightHandObj)) {  // Right hand not empty
+        if ((slotID == EquipSlots::Right) && (RightHandObj)) {  // Right hand not empty
             if (RightHandObj->Is(RE::FormType::Spell)) {
                 return true;
             }
@@ -153,11 +167,58 @@ namespace Utils {
                 return true;
             }
         }
+        if ((slotID == EquipSlots::Both) && (RightHandObj) && (LeftHandObj)) {  // Right and left hand not empty
+            if (RightHandObj->Is(RE::FormType::Spell) && LeftHandObj->Is(RE::FormType::Spell)) {
+                return true;
+            }
+            if (RightHandObj->Is(RE::FormType::Scroll) && LeftHandObj->Is(RE::FormType::Scroll)) {
+                return true;
+            }
+            if (RightHandObj->Is(RE::FormType::Spell) && LeftHandObj->Is(RE::FormType::Scroll)) {
+                return true;
+            }
+            if (RightHandObj->Is(RE::FormType::Scroll) && LeftHandObj->Is(RE::FormType::Spell)) {
+                return true;
+            }
+        }
         return false;
     }
 
+    
+    bool DropIfLowHP(RE::Actor* a_actor) {
+        bool res = false; /*
+        static RE::Actor* player = RE::PlayerCharacter::GetSingleton();
+        if ((a_actor == player && Settings::PC_Drop_Weapons) ||
+            (a_actor != player && Settings::NPC_Drop_Weapons)) {
+            const float curr_hp = a_actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kHealth);
+            const float max_hp = a_actor->AsActorValueOwner()->GetBaseActorValue(RE::ActorValue::kHealth);
+            logger::trace("{} / {} hp", curr_hp, max_hp);
+            if (max_hp != 0.0) {
+                if (((a_actor == player) && (curr_hp / max_hp)*100 <= Settings::PC_Health_Drop) ||
+                    ((a_actor != player) && (curr_hp / max_hp)*100 <= Settings::NPC_Health_Drop)) {
+                    RE::TESForm* Left = a_actor->GetEquippedObject(true);
+                    RE::TESForm* Right = a_actor->GetEquippedObject(false);
+                    if (Left) {
+                        logger::trace("{} dropping {}", a_actor->GetName(), Left->GetName());
+                        RE::TESBoundObject* bound = Left->As<RE::TESBoundObject>();
+                        a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
+                        res = true;
+                    }
+                    if (Right) {
+                        logger::trace("{} dropping {}", a_actor->GetName(), Right->GetName());
+                        RE::TESBoundObject* bound = Right->As<RE::TESBoundObject>();
+                        a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
+                        res = true;
+                    }
+                }
+            }
+        }*/
+        return res;
+    }
+
     void UpdateInventory(RE::TESObjectREFR* a_obj_refr, RE::TESBoundObject* object, RE::ExtraDataList* a_extra) {
-        /*auto player = RE::PlayerCharacter::GetSingleton();
+        /* WIP
+        auto player = RE::PlayerCharacter::GetSingleton();
         if (!player) {
             return;
         }
