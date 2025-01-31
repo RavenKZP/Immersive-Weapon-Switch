@@ -7,13 +7,14 @@ namespace Hooks {
     void Install() {
         constexpr size_t size_per_hook = 14;
         auto& trampoline = SKSE::GetTrampoline();
-        SKSE::AllocTrampoline(size_per_hook * 4);
+        SKSE::AllocTrampoline(size_per_hook * 5);
 
         ReadyWeaponHandlerHook::InstallHook();
         EquipObjectHook::InstallHook(trampoline);
-        EquipObjectUoTHook::InstallHook(trampoline);
+        EquipObjectNoSlotHook::InstallHook(trampoline);
         EquipSpellHook::InstallHook(trampoline);
-        UnEquipObjectHook::InstallHook(trampoline);
+        UnEquipObjectPCHook::InstallHook(trampoline);
+        UnEquipObjectNPCHook::InstallHook(trampoline);
         ActorUpdateHook<RE::Character>::InstallHook();
         ActorUpdateHook<RE::PlayerCharacter>::InstallHook();
     }
@@ -23,25 +24,27 @@ namespace Hooks {
         func = vTable.write_vfunc(0x4, &ReadyWeaponHandlerHook::thunk);
     }
     void EquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        //PC
+        // PC
         func = a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2e0, 0x2e0), thunk);
-        //NPC:
+        // NPC
         func = a_trampoline.write_call<5>(REL::RelocationID(46955, 48124).address() + REL::Relocate(0x1a5, 0x1d6), thunk);
-        //Brawl (Papyrus?)
+        // Brawl (Papyrus?)
         func = a_trampoline.write_call<5>(REL::RelocationID(53861, 54661).address() + REL::Relocate(0x14e, 0x14e), thunk);
     }
-    void EquipObjectUoTHook::InstallHook(SKSE::Trampoline& a_trampoline) {
+    void EquipObjectNoSlotHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // Use or Take
         func = a_trampoline.write_call<5>(REL::RelocationID(37938, 38894).address() + REL::Relocate(0xE5, 0x170), thunk);
     }
     void EquipSpellHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         func = a_trampoline.write_call<5>(REL::RelocationID(37952, 38908).address() + REL::Relocate(0xd7, 0xd7), thunk);
     }
-    void UnEquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        //PC
+    void UnEquipObjectPCHook::InstallHook(SKSE::Trampoline& a_trampoline) {
+        // PC
         func = a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2a9, 0x2a9), thunk);
-        //NPC:
-        func = a_trampoline.write_call<5>(REL::RelocationID(38789, 39814).address() + REL::Relocate(0x124, 0x11e), thunk);
+    }
+    void UnEquipObjectNPCHook::InstallHook(SKSE::Trampoline& a_trampoline) {
+        // NPC
+        func = a_trampoline.write_call<5>(REL::RelocationID(37949, 38905).address() + REL::Relocate(0xfd, 0x101), thunk);
     }
     template <class T>
     void ActorUpdateHook<T>::InstallHook() {
@@ -51,7 +54,7 @@ namespace Hooks {
 
     void ReadyWeaponHandlerHook::thunk(RE::ReadyWeaponHandler* a_this, RE::ButtonEvent* a_event,
                                        RE::PlayerControlsData* a_data) {
-        if (!a_this || !a_event || !a_data || !Settings::Hold_To_Drop || !Utils::Mod_Active) {
+        if (!a_this || !a_event || !a_data || !Settings::Hold_To_Drop || !Settings::Mod_Active) {
             return func(a_this, a_event, a_data);
         }
 
@@ -61,42 +64,26 @@ namespace Hooks {
         }
 
         if (!a_event->IsUp()) return;
-        if (a_event->HeldDuration() < held_threshold) {
+        if (a_event->HeldDuration() < Settings::Held_Duration) {
             a_event->value = 1.0f;
             a_event->heldDownSecs = 0.f;
             return func(a_this, a_event, a_data);
         }
 
-        RE::TESForm* LeftHand = player->GetEquippedObject(true);
         RE::TESForm* RightHand = player->GetEquippedObject(false);
+        RE::TESForm* LeftHand = player->GetEquippedObject(true);
 
-        RE::TESForm* objectToThrow = nullptr;
-        if (RightHand) {
-            if (RightHand->IsWeapon()) {
-                objectToThrow = RightHand;
-            }
-        }
-        if (LeftHand) {
-            if (LeftHand->IsWeapon() || LeftHand->IsArmor()) {
-                objectToThrow = LeftHand;
-            }
-        }
-
-        if (!objectToThrow) {
-            return func(a_this, a_event, a_data);
-        }
-
-        SKSE::GetTaskInterface()->AddTask([player, objectToThrow]() {
-            RE::TESBoundObject* bound = objectToThrow->As<RE::TESBoundObject>();
+        if ((RightHand) && (RightHand->IsWeapon())) {
+            RE::TESBoundObject* bound = RightHand->As<RE::TESBoundObject>();
             player->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
-            // Grab and Throw
-            // Grab
-            // GrabThrowHandler::ThrowGrabbedObject(RE::PlayerCharacter* player, float a_strength);
-            // 
-            // WIP - Equip Unarmed after drop?
-            //RE::ActorEquipManager::GetSingleton()->EquipObject(player, Utils::unarmed_weapon, nullptr, 1, Utils::right_hand_slot);
-            //RE::ActorEquipManager::GetSingleton()->EquipObject(player, Utils::unarmed_weapon, nullptr, 1, Utils::left_hand_slot);
-        });
+        }
+        if ((LeftHand) && (LeftHand->IsWeapon() || LeftHand->IsArmor() || LeftHand->Is(RE::FormType::Light) )) {
+            RE::TESBoundObject* bound = LeftHand->As<RE::TESBoundObject>();
+            player->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
+        }
+
+        RE::ActorEquipManager::GetSingleton()->EquipObject(player, Utils::unarmed_weapon, nullptr, 1, Utils::right_hand_slot);
+        RE::ActorEquipManager::GetSingleton()->EquipObject(player, Utils::unarmed_weapon, nullptr, 1, Utils::left_hand_slot);
 
         return func(a_this, a_event, a_data);
     }
@@ -104,16 +91,20 @@ namespace Hooks {
     void EquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
                                 RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot,
                                 bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow) {
-        if (!a_actor || !a_manager || !Utils::Mod_Active) {
+        if (!a_actor || !a_manager || !Settings::Mod_Active) {
             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                         a_playSounds, a_applyNow);
         }
+
+        logger::trace("EquipObjectHook {} {}", a_actor->GetName(), a_object->GetName());
         if (Utils::IsInHand(a_object)) {
                         
             if (Utils::IsInQueue(a_actor->GetFormID())) {
+                logger::trace("IsInQueue");
                 const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,      a_slot,
                                              a_queueEquip, a_forceEquip, a_playSounds, a_applyNow};
                 UpdateQueue(a_actor->GetFormID(), EquipEvent);
+                Utils::UpdateEquipingInfo(a_object, a_extraData);
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                 return;
@@ -123,36 +114,45 @@ namespace Hooks {
 
                     if (a_slot) {
                         if (Utils::IsHandFree(a_slot->GetFormID(), a_actor)) {
+                            logger::trace("IsHandFree true");
                             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
                                         a_forceEquip, a_playSounds, a_applyNow);
                         }
                     }
+                    logger::trace("IsHandFree false");
 
                     if (Utils::DropIfLowHP(a_actor)) {
                         return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
                                     a_forceEquip, a_playSounds, a_applyNow);
                     }
+                    logger::trace("Not Drop");
 
                     const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,      a_slot,
                                                  a_queueEquip, a_forceEquip, a_playSounds, a_applyNow};
                     UpdateQueue(a_actor->GetFormID(), EquipEvent);
+                    Utils::UpdateEquipingInfo(a_object, a_extraData);
                     a_actor->DrawWeaponMagicHands(false);
                     a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                     return;
                 }
             }
         }
-
         return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                     a_playSounds, a_applyNow);
     }
 
-    void EquipObjectUoTHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object, std::uint64_t a_unk) {
-        if (!a_actor || !a_object || !a_manager || !Utils::Mod_Active) {
+    void EquipObjectNoSlotHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object, std::uint64_t a_unk) {
+        if (!a_actor || !a_object || !a_manager || !Settings::Mod_Active) {
             return func(a_manager, a_actor, a_object, a_unk);
         }
+        logger::trace("EquipObjectNoSlotHook {} {}", a_actor->GetName(), a_object->GetName());
+
         if (Utils::IsInHand(a_object)) {
             if (Utils::IsInQueue(a_actor->GetFormID())) {
+                logger::trace("IsInQueue");
+                if (a_object == Utils::GetLastObject(a_actor->GetFormID())) { // Object already tracked by EquipHook
+                    return func(a_manager, a_actor, a_object, a_unk);
+                }
                 const Utils::EquipEvent EquipEvent{a_object};
                 UpdateQueue(a_actor->GetFormID(), EquipEvent);
                 a_actor->DrawWeaponMagicHands(false);
@@ -161,41 +161,26 @@ namespace Hooks {
             }
             if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
                 if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
-
-                    Utils::EquipSlots slot = Utils::EquipSlots::Right;
-
-                    if (a_object->IsArmor()) {
-                        slot = Utils::EquipSlots::Shield;
-                    } else if (a_object->GetFormType() == RE::FormType::Light) {
-                        slot = Utils::EquipSlots::Left;
-                    }else if (a_object->IsWeapon()) {
-                        switch (a_object->As<RE::TESObjectWEAP>()->GetWeaponType()) {
-                            case (RE::WeaponTypes::WEAPON_TYPE::kTwoHandAxe):
-                            case (RE::WeaponTypes::WEAPON_TYPE::kTwoHandSword):
-                            case (RE::WeaponTypes::WEAPON_TYPE::kBow):
-                            case (RE::WeaponTypes::WEAPON_TYPE::kCrossbow): {
-                                slot = Utils::EquipSlots::Both;
-                                break;
-                            }
-                            default: {
-                                slot = Utils::EquipSlots::Right;
-                                break;
-                            }
+                    Utils::EquipEvent EquipEvent{a_object};
+                    Utils::EquipSlots slot = Utils::SetEquipSlot(a_object, a_actor);
+                    if (slot != Utils::EquipSlots::Left) {
+                        if (Utils::IsHandFree(slot, a_actor, a_object)) {
+                            logger::trace("IsHandFree true");
+                            return func(a_manager, a_actor, a_object, a_unk);
                         }
+                        logger::trace("IsHandFree false");
+                    }
+                    else {
+                        EquipEvent.slot = Utils::left_hand_slot;
                     }
 
-                    if (Utils::IsHandFree(slot, a_actor)) {
+                    if ((slot == Utils::EquipSlots::Left) && Utils::IsHandFree(slot, a_actor, a_object)) {
                         return func(a_manager, a_actor, a_object, a_unk);
+                    } else {
+                        UpdateQueue(a_actor->GetFormID(), EquipEvent);
+                        a_actor->DrawWeaponMagicHands(false);
+                        a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                     }
-
-                    if (Utils::DropIfLowHP(a_actor)) {
-                        return func(a_manager, a_actor, a_object, a_unk);
-                    }
-
-                    const Utils::EquipEvent EquipEvent{a_object};
-                    UpdateQueue(a_actor->GetFormID(), EquipEvent);
-                    a_actor->DrawWeaponMagicHands(false);
-                    a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                     return;
                 }
             }
@@ -204,15 +189,15 @@ namespace Hooks {
     }
 
     void EquipSpellHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::SpellItem* a_spell, RE::BGSEquipSlot** a_slot) {
-        if (!a_spell || !a_actor || !a_manager || !Utils::Mod_Active) {
+        if (!a_spell || !a_actor || !a_manager || !Settings::Mod_Active) {
             return func(a_manager, a_actor, a_spell, a_slot);
         }
+        logger::trace("EquipSpellHook {}", a_actor->GetName());
 
         if (Utils::IsInQueue(a_actor->GetFormID())) {
-
+            logger::trace("IsInQueue");
             const Utils::EquipEvent EquipEvent{nullptr, nullptr, 1, *a_slot, true, false, true, false, true, a_spell};
             UpdateQueue(a_actor->GetFormID(), EquipEvent);
-
             a_actor->DrawWeaponMagicHands(false);
             a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
             return;
@@ -235,7 +220,6 @@ namespace Hooks {
 
                 const Utils::EquipEvent EquipEvent{nullptr, nullptr, 1, *a_slot, true, false, true, false, true, a_spell};
                 UpdateQueue(a_actor->GetFormID(), EquipEvent);
-
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                 return;
@@ -244,30 +228,88 @@ namespace Hooks {
         return func(a_manager, a_actor, a_spell, a_slot);
     }
 
-    void UnEquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+    void UnEquipObjectPCHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
                                   RE::ExtraDataList* a_extraData, std::uint32_t a_count, const RE::BGSEquipSlot* a_slot,
                                   bool a_queueEquip, bool a_forceEquip, bool a_playSounds, bool a_applyNow,
                                   const RE::BGSEquipSlot* a_slotToReplace)
     {
-        if (!a_object || !a_actor || !a_manager || !Utils::Mod_Active) {
+        if (!a_object || !a_actor || !a_manager || !Settings::Mod_Active) {
             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                         a_playSounds, a_applyNow, a_slotToReplace);
+        }
+        logger::trace("UnEquipObject PC Hook {} {}", a_actor->GetName(), a_object->GetName());
+        if (a_object->IsWeapon()) {
+            if ((a_object == Utils::unarmed_weapon) || (a_object->As<RE::TESObjectWEAP>()->IsBound())) {
+                return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                            a_playSounds, a_applyNow, a_slotToReplace);
+            }
         }
 
         if (Utils::IsInHand(a_object)) {
             if (Utils::IsInQueue(a_actor->GetFormID())) {
+                logger::trace("InQueue {}", a_actor->GetName());
                 const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,      a_slot,
                                              a_queueEquip, a_forceEquip, a_playSounds, a_applyNow, false};
                 UpdateQueue(a_actor->GetFormID(), EquipEvent);
+                a_actor->DrawWeaponMagicHands(false);
+                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                 return;
             }
 
             if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
                 if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
+                    logger::trace("kDrawn");
                     const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,    a_slot, a_queueEquip,
                                                        a_forceEquip, a_playSounds, a_applyNow, false};
                     UpdateQueue(a_actor->GetFormID(), EquipEvent);
+                    a_actor->DrawWeaponMagicHands(false);
+                    a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                    return;
+                }
+            }
+        }
+        return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                    a_playSounds, a_applyNow, a_slotToReplace);
+    }
 
+    void UnEquipObjectNPCHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+                                    RE::ExtraDataList* a_extraData, std::uint32_t a_count,
+                                    const RE::BGSEquipSlot* a_slot, bool a_queueEquip, bool a_forceEquip,
+                                    bool a_playSounds, bool a_applyNow, const RE::BGSEquipSlot* a_slotToReplace) {
+        if (!a_object || !a_actor || !a_manager || !Settings::Mod_Active) {
+            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                        a_playSounds, a_applyNow, a_slotToReplace);
+        }
+        logger::trace("UnEquipObject NPC Hook {} {}", a_actor->GetName(), a_object->GetName());
+
+        if (a_actor->IsPlayerRef()) {
+            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                        a_playSounds, a_applyNow, a_slotToReplace);
+        }
+        if (a_object->IsWeapon()) {
+            if ((a_object == Utils::unarmed_weapon) || (a_object->As<RE::TESObjectWEAP>()->IsBound())) {
+                return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                            a_playSounds, a_applyNow, a_slotToReplace);
+            }
+        }
+
+        if (Utils::IsInHand(a_object)) {
+            if (Utils::IsInQueue(a_actor->GetFormID())) {
+                logger::trace("InQueue {}", a_actor->GetName());
+                const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,    a_slot, a_queueEquip,
+                                                   a_forceEquip, a_playSounds, a_applyNow, false};
+                UpdateQueue(a_actor->GetFormID(), EquipEvent);
+                a_actor->DrawWeaponMagicHands(false);
+                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                return;
+            }
+
+            if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
+                if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
+                    logger::trace("kDrawn");
+                    const Utils::EquipEvent EquipEvent{a_object,     a_extraData,  a_count,    a_slot, a_queueEquip,
+                                                       a_forceEquip, a_playSounds, a_applyNow, false};
+                    UpdateQueue(a_actor->GetFormID(), EquipEvent);
                     a_actor->DrawWeaponMagicHands(false);
                     a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                     return;
@@ -280,10 +322,15 @@ namespace Hooks {
 
     template <class T>
     void ActorUpdateHook<T>::thunk(T* a_actor, float a_delta) {
-        if (!a_actor || !Utils::Mod_Active) {
+        if (!a_actor || !Settings::Mod_Active) {
             return func(a_actor, a_delta);
         }
         if (!Utils::IsInQueue(a_actor->GetFormID())) {
+            return func(a_actor, a_delta);
+        }
+        if (a_actor->IsDead()) {
+            // :'(
+            Utils::RemoveFromQueue(a_actor->GetFormID());
             return func(a_actor, a_delta);
         }
 
@@ -291,22 +338,42 @@ namespace Hooks {
             RE::WEAPON_STATE weaponState = actorState->GetWeaponState();
 
             if (weaponState != RE::WEAPON_STATE::kSheathed) {
-                a_actor->DrawWeaponMagicHands(false); // To remind NPC what is he doing...
-                return func(a_actor, a_delta);
+
+                if (actorState->actorState2.staggered) {
+                    logger::trace("{} Staggered", a_actor->GetFormID());
+                    Utils::UpdateTimestamp(a_actor->GetFormID());
+                }
+
+                // Timeout - Why?
+                // Sometimes (Rare, but noticeable) // Actors get stuck, their Weapon State is not updated
+                // so they never get Sheathed state even if they finished Shearling
+                const float time_since_last_update =
+                    (Utils::gameHour->value - Utils::GetTimestamp(a_actor->GetFormID())) / Utils::timescale->value;
+                //logger::trace("Timestamp {} {}", a_actor->GetFormID(), time_since_last_update);
+                if (time_since_last_update < 0.0006f) {  // Check for timeout (~2s)
+                    return func(a_actor, a_delta);
+                } else { 
+                    logger::warn("Timeout for {}", a_actor->GetName());
+                    a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kSheathed;
+                }
             }
             std::queue<Utils::EquipEvent> equipQueue = Utils::GetQueue(a_actor->GetFormID());
             //Remove Actor from Queue to not mess during Equip calls from Queue
             Utils::RemoveFromQueue(a_actor->GetFormID());
+
+            //Executa all Queued actions
             while (!equipQueue.empty()) {
                 if (const Utils::EquipEvent& currEvent = equipQueue.front(); currEvent.equip) {
                     if (currEvent.spell) {
                         RE::ActorEquipManager::GetSingleton()->EquipSpell(a_actor, currEvent.spell, currEvent.slot);
                     } else {
+                        Utils::RemoveEquipingInfo(currEvent.object);
                         RE::ActorEquipManager::GetSingleton()->EquipObject(
                             a_actor, currEvent.object, currEvent.extraData, currEvent.count, currEvent.slot,
                             currEvent.queueEquip, currEvent.forceEquip, currEvent.playSounds, currEvent.applyNow);
                     }
                 } else {
+                    Utils::RemoveEquipingInfo(currEvent.object);
                     RE::ActorEquipManager::GetSingleton()->UnequipObject(
                         a_actor, currEvent.object, currEvent.extraData, currEvent.count, currEvent.slot,
                         currEvent.queueEquip, currEvent.forceEquip, currEvent.playSounds, currEvent.applyNow);

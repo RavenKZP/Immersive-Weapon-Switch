@@ -8,7 +8,7 @@ void OnMessage(SKSE::MessagingInterface::Message* message) {
     if (message->type == SKSE::MessagingInterface::kDataLoaded) {
         Settings::LoadSettings();
         MCP::Register();
-        Utils::InitConsts();
+        Utils::InitGlobals();
     }
     if (message->type == SKSE::MessagingInterface::kNewGame || message->type == SKSE::MessagingInterface::kPreLoadGame) {
         Utils::ClearQueue();

@@ -1,5 +1,6 @@
 #pragma once
 #include <shared_mutex>
+#include <unordered_set>
 
 namespace Helper {
 
@@ -24,32 +25,46 @@ namespace Utils {
         RE::SpellItem* spell = nullptr;
     };
 
+    struct EquipQueueData {
+        std::queue<EquipEvent> queue;
+        RE::TESBoundObject* last_object;
+        float timestamp;
+    };
+
     const enum EquipSlots { Shield = 82408, Right = 81730, Left = 81731, Both = 81733
     };
+
+    void InitGlobals();
     
     void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata);
     bool IsInQueue(RE::FormID actID);
     void RemoveFromQueue(RE::FormID actID);
     void ClearQueue();
     std::queue<EquipEvent> GetQueue(RE::FormID actID);
+    float GetTimestamp(RE::FormID actID);
+    RE::TESBoundObject* GetLastObject(RE::FormID actID);
+    void UpdateTimestamp(RE::FormID actID);
 
-    void InitConsts();
 
     //Returns true whenever given object is equipable in left, right or both hands
     bool IsInHand(RE::TESBoundObject* a_object);
     //Returns True whenever hand is empty or equiped with scroll/spell
-    bool IsHandFree(RE::FormID slotID, RE::Actor* actor);
+    bool IsHandFree(RE::FormID slotID, RE::Actor* actor, RE::TESBoundObject* a_object = nullptr);
     //Returns true if dropped
     bool DropIfLowHP(RE::Actor* actor);
 
-    void UpdateInventory(RE::TESObjectREFR* a_obj_refr, RE::TESBoundObject* object, RE::ExtraDataList* a_extra);
+    EquipSlots SetEquipSlot(RE::TESBoundObject* a_object, RE::Actor* a_actor);
+
+    void UpdateEquipingInfo(RE::TESBoundObject* object, RE::ExtraDataList* a_extraData);
+    void RemoveEquipingInfo(RE::TESBoundObject* object);
+
+    inline RE::TESGlobal* gameHour;
+    inline RE::TESGlobal* timescale;
     
 	inline std::shared_mutex actor_queue_mutex;
-    inline std::unordered_map<RE::FormID, std::queue<EquipEvent>> actor_queue;
+    inline std::unordered_map<RE::FormID, EquipQueueData> actor_queue;
 
-    inline const RE::BGSEquipSlot* right_hand_slot{};
-    inline const RE::BGSEquipSlot* left_hand_slot{};
+    inline const RE::BGSEquipSlot* right_hand_slot;
+    inline const RE::BGSEquipSlot* left_hand_slot;
     inline RE::TESBoundObject* unarmed_weapon;
-
-    inline bool Mod_Active = true;
 }

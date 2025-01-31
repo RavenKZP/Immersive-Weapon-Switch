@@ -14,19 +14,25 @@ namespace MCP {
 
         logger::info("SKSE Menu Framework registered.");
     }
-    void __stdcall MCP::RenderSettings() {
+
+    void __stdcall RenderSettings() {
         if (ImGui::Button("Save Settings")) {
             Settings::SaveSettings();
         }
+        if (ImGui::Button("Reset Settings")) {
+            Settings::ResetSettings();
+        }
 
-        ImGui::Checkbox("Mod Active", &Utils::Mod_Active);
+        ImGui::Checkbox("Mod Active", &Settings::Mod_Active);
 
-        ImGui::Checkbox("NPC Can Drop Weapons on change", &Settings::NPC_Drop_Weapons);
-        ImGui::Checkbox("PC Can Drop Weapons on change", &Settings::PC_Drop_Weapons);
         ImGui::Checkbox("Hold 'R' To Drop", &Settings::Hold_To_Drop);
+        ImGui::SliderFloat("Held Duration To Drop (sec)", &Settings::Held_Duration, 0, 10, "%.3f");
 
-        ImGui::SliderFloat("Max NPC Health to Drop", &Settings::NPC_Health_Drop, 0, 100, "%.0f");
-        ImGui::SliderFloat("Max PC Health to Drop", &Settings::PC_Health_Drop, 0, 100, "%.0f");
+        ImGui::Checkbox("NPC Drop Weapons On Change", &Settings::NPC_Drop_Weapons);
+        ImGui::Checkbox("PC Drop Weapons On Change", &Settings::PC_Drop_Weapons);
 
-    };
+        ImGui::SliderFloat("NPC Health % to Drop", &Settings::NPC_Health_Drop, 0, 100, "%.0f");
+        ImGui::SliderFloat("PC Health % to Drop", &Settings::PC_Health_Drop, 0, 100, "%.0f");
+    }
+
 }
