@@ -14,12 +14,13 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 # If you use CMake features from higher versions, update this to match.
 cmake_minimum_required(VERSION 3.21)
 # Set your project name. This will be the name of your SKSE .dll file.
-set(AUTHOR_NAME "AUTHORNAME")
-set(PRODUCT_NAME "MODNAME")
-project(${PRODUCT_NAME} VERSION 0.1.0.0 LANGUAGES CXX)
+set(AUTHOR_NAME "RavenKZP")
+set(PRODUCT_NAME "ImmersiveWeaponSwitch")
+project(${PRODUCT_NAME} VERSION 0.1.5.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_DEBUG OFF)
 
 configure_file(
         ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.rc.in
@@ -39,6 +40,7 @@ add_custom_command(
 add_custom_target(Resource ALL DEPENDS ${RESOURCE_OUTPUT})
 include(FetchContent)
 
+
 set(ENABLE_SKYRIM_SE ON CACHE BOOL " " FORCE)
 set(ENABLE_SKYRIM_AE ON CACHE BOOL " " FORCE)
 set(ENABLE_SKYRIM_VR ON CACHE BOOL " " FORCE)
@@ -49,21 +51,6 @@ get_target_property(COMMONLIB_SRC_DIR CommonLibSSE SOURCE_DIR)
 
 find_path(CLIB_UTIL_INCLUDE_DIRS "ClibUtil/utils.hpp")
 find_path(SKSE_MCP_INCLUDE_DIRS "SKSEMCP/utils.hpp")
-
-
-#YAML-CPP
-FetchContent_Declare(
-  yaml-cpp
-  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp.git
-  GIT_TAG master # Can be a tag (yaml-cpp-x.x.x), a commit hash, or a branch name (master)
-)
-FetchContent_GetProperties(yaml-cpp)
-if(NOT yaml-cpp_POPULATED)
-  message(STATUS "Fetching yaml-cpp...")
-  FetchContent_Populate(yaml-cpp)
-  add_subdirectory(${yaml-cpp_SOURCE_DIR} ${yaml-cpp_BINARY_DIR})
-endif()
-
 
 file(
   GLOB_RECURSE
@@ -80,22 +67,59 @@ source_group(
 set(BUILD_TESTS OFF)
 include(${COMMONLIB_SRC_DIR}/cmake/CommonLibSSE.cmake)
 
+set(Boost_USE_STATIC_RUNTIME OFF CACHE BOOL "")
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>" CACHE STRING "")
+if (MSVC)
+	if (NOT ${CMAKE_GENERATOR} STREQUAL "Ninja")
+		add_compile_options(
+			/MP	# Build with Multiple Processes
+		)
+	endif ()
+endif ()
+set(Boost_USE_STATIC_LIBS ON)
+
+find_package(directxtex CONFIG REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(imgui CONFIG REQUIRED)
+find_package(rapidfuzz CONFIG REQUIRED)
+find_package(unordered_dense CONFIG REQUIRED)
+find_path(SRELL_INCLUDE_DIRS "srell.hpp")
+
+
 add_commonlibsse_plugin(
   ${PROJECT_NAME}
-  AUTHOR AUTHOR_NAME
+  AUTHOR ${AUTHOR_NAME}
+  MINIMUM_SKSE_VERSION 2.0.20
   SOURCES ${headers} ${sources}
 )
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23) # <--- use C++23 standard
 target_precompile_headers(${PROJECT_NAME} PRIVATE include/PCH.h) # <--- PCH.h is required!
+
 target_include_directories(
 	${PROJECT_NAME}
 	PRIVATE
 	${CLIB_UTIL_INCLUDE_DIRS}
     ${SKSE_MCP_INCLUDE_DIRS}
+	${SRELL_INCLUDE_DIRS}
 	${CMAKE_CURRENT_SOURCE_DIR}/include
+	${CMAKE_CURRENT_SOURCE_DIR}/src
+	${CMAKE_CURRENT_SOURCE_DIR}/src/ImGui
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Scenes
+	${CMAKE_CURRENT_SOURCE_DIR}/src/Scenes/Helpers
+	${ctpl_SOURCE_DIR}
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC yaml-cpp::yaml-cpp)
+target_link_libraries(
+	${PROJECT_NAME}
+	PRIVATE
+		Microsoft::DirectXTex
+		Freetype::Freetype
+		imgui::imgui
+		rapidfuzz::rapidfuzz
+		unordered_dense::unordered_dense
+)
+
+
 target_compile_definitions(${PROJECT_NAME} PRIVATE IS_HOST_PLUGIN)
 
 set(wildlander_output false)

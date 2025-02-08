@@ -1,10 +1,19 @@
 set(sources ${sources}
 	src/Events.cpp
-	src/plugin.cpp
-	src/Utils.cpp
-	src/Settings.cpp
-	src/Manager.cpp
 	src/Hooks.cpp
+ 	src/Input.cpp
+	src/Manager.cpp
 	src/MCP.cpp
+	src/plugin.cpp
+ 	src/Renderer.cpp
  	src/Serialization.cpp
+	src/Settings.cpp
+	src/Utils.cpp
+    src/ImGui/FormComboBox.cpp
+	src/ImGui/Graphics.cpp
+    src/ImGui/IconsFonts.cpp
+    src/ImGui/IconsFontAwesome6.cpp
+    src/ImGui/Styles.cpp
+    src/ImGui/Util.cpp
+    src/ImGui/Widgets.cpp
 )

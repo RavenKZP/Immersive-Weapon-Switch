@@ -1,11 +1,20 @@
 set(headers ${headers}
-	include/Utils.h
-	include/PCH.h
-	include/logger.h
-	include/Settings.h
-	include/Manager.h
 	include/Events.h
 	include/Hooks.h
+	include/Input.h
+	include/Logger.h
+	include/Manager.h
 	include/MCP.h
+	include/PCH.h
+	include/Renderer.h
 	include/Serialization.h
+	include/Settings.h
+	include/Utils.h
+    src/ImGui/FormComboBox.h
+	src/ImGui/Graphics.h
+    src/ImGui/IconsFonts.h
+    src/ImGui/IconsFontAwesome6.h
+    src/ImGui/Styles.h
+    src/ImGui/Util.h
+    src/ImGui/Widgets.h
 )
