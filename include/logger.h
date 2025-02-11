@@ -15,6 +15,6 @@ static void SetupLog() {
     spdlog::set_level(spdlog::level::info);
     spdlog::flush_on(spdlog::level::info);
 #endif
-    logger::info("Name of the plugin is {}.", pluginName);
-    logger::info("Version of the plugin is {}.", SKSE::PluginDeclaration::GetSingleton()->GetVersion());
+    logger::info("Plugin Name {}", pluginName);
+    logger::info("Plugin version: {}", SKSE::PluginDeclaration::GetSingleton()->GetVersion());
 }
