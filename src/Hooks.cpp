@@ -42,12 +42,18 @@ namespace Hooks {
     void EquipObjectNoSlotHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // Use or Take 
         // This is general hook called very often, but it's lacking equip slot info
+        // Commonlib
         func =
             a_trampoline.write_call<5>(REL::RelocationID(37938, 38894).address() + REL::Relocate(0xE5, 0x170), thunk);
     }
     void EquipSpellHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // PC and NPC
-        func = a_trampoline.write_call<5>(REL::RelocationID(37952, 38908).address() + REL::Relocate(0xd7, 0xd7), thunk);
+        // Menus
+        func = a_trampoline.write_call<5>(REL::RelocationID(37952, 38908).address() + REL::Relocate(0xd7, 0xd7), thunk); 
+        // Hotkey
+        func = a_trampoline.write_call<5>(REL::RelocationID(37950, 38906).address() + REL::Relocate(0xc5, 0xca), thunk); 
+        // Commonlib
+        func = a_trampoline.write_call<5>(REL::RelocationID(37939, 38895).address() + REL::Relocate(0x47, 0x47), thunk); 
     }
     void UnEquipObjectPCHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // PC
