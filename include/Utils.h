@@ -64,8 +64,8 @@ namespace Utils {
     inline std::shared_mutex actor_queue_mutex;
     inline std::unordered_map<RE::FormID, EquipQueueData> actor_queue;
 
-    inline const RE::BGSEquipSlot* right_hand_slot;
-    inline const RE::BGSEquipSlot* left_hand_slot;
+    inline RE::BGSEquipSlot* right_hand_slot;
+    inline RE::BGSEquipSlot* left_hand_slot;
     inline RE::TESBoundObject* unarmed_weapon;
 
     inline RE::BGSKeyword* switch_keyword_left;

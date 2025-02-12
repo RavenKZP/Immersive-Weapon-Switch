@@ -159,6 +159,11 @@ namespace Utils {
             a_object->Is(RE::FormType::Scroll)) {
             return true;
         }
+        if (a_object->Is(RE::FormType::Spell)) {
+            if (a_object->As<RE::SpellItem>()->GetSpellType() == RE::MagicSystem::SpellType::kSpell) {
+                return true;
+            }
+        }
         if (a_object->Is(RE::FormType::Armor)) {
             if (const auto equip_slot = a_object->As<RE::TESObjectARMO>()->GetEquipSlot();
                 equip_slot && equip_slot->GetFormID() == EquipSlots::Shield) {
@@ -317,7 +322,7 @@ namespace Utils {
     }
 
     void SetInventoryInfo(RE::BGSKeywordForm* kwdForm, bool left, bool unequip) {
-
+        auto player = RE::PlayerCharacter::GetSingleton();
         if (unequip) {
             if (kwdForm && unequip_keyword) {
                 if (!kwdForm->HasKeyword(unequip_keyword)) {
@@ -342,6 +347,7 @@ namespace Utils {
             if (kwdForm && switch_keyword_left) {
                 if (!kwdForm->HasKeyword(switch_keyword_left)) {
                     kwdForm->AddKeyword(switch_keyword_left);
+                    //player->As<RE::BGSKeywordForm>()->AddKeyword(switch_keyword_left);
                 }
             }
         } else {
@@ -349,21 +355,25 @@ namespace Utils {
             if (kwdForm && switch_keyword_right) {
                 if (!kwdForm->HasKeyword(switch_keyword_right)) {
                     kwdForm->AddKeyword(switch_keyword_right);
+                    //player->As<RE::BGSKeywordForm>()->AddKeyword(switch_keyword_right);
                 }
             }
         }
-        RE::SendUIMessage::SendInventoryUpdateMessage(RE::PlayerCharacter::GetSingleton(), nullptr);
+        RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
     }
 
     void RemoveInventoryInfo(RE::BGSKeywordForm* kwdForm) {
+        auto player = RE::PlayerCharacter::GetSingleton();
         if (kwdForm && switch_keyword_left) {
             if (kwdForm->HasKeyword(switch_keyword_left)) {
                 kwdForm->RemoveKeyword(switch_keyword_left);
+                //player->As<RE::BGSKeywordForm>()->RemoveKeyword(switch_keyword_left);
             }
         }
         if (kwdForm && switch_keyword_right) {
             if (kwdForm->HasKeyword(switch_keyword_right)) {
                 kwdForm->RemoveKeyword(switch_keyword_right);
+                //player->As<RE::BGSKeywordForm>()->RemoveKeyword(switch_keyword_right);
             }
         }
         if (kwdForm && unequip_keyword) {
@@ -371,6 +381,6 @@ namespace Utils {
                 kwdForm->RemoveKeyword(unequip_keyword);
             }
         }
-        RE::SendUIMessage::SendInventoryUpdateMessage(RE::PlayerCharacter::GetSingleton(), nullptr);
+        RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
     }
 }

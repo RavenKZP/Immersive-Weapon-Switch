@@ -30,21 +30,17 @@ namespace Hooks {
     }
     void EquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // PC
-        func =
-            a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2e0, 0x2e0), thunk);
+        func = a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2e0, 0x2e0), thunk);
         // NPC
-        func =
-            a_trampoline.write_call<5>(REL::RelocationID(46955, 48124).address() + REL::Relocate(0x1a5, 0x1d6), thunk);
+        func = a_trampoline.write_call<5>(REL::RelocationID(46955, 48124).address() + REL::Relocate(0x1a5, 0x1d6), thunk);
         // Brawl (Papyrus?)
-        func =
-            a_trampoline.write_call<5>(REL::RelocationID(53861, 54661).address() + REL::Relocate(0x14e, 0x14e), thunk);
+        func = a_trampoline.write_call<5>(REL::RelocationID(53861, 54661).address() + REL::Relocate(0x14e, 0x14e), thunk);
     }
     void EquipObjectNoSlotHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // Use or Take 
         // This is general hook called very often, but it's lacking equip slot info
         // Commonlib
-        func =
-            a_trampoline.write_call<5>(REL::RelocationID(37938, 38894).address() + REL::Relocate(0xE5, 0x170), thunk);
+        func = a_trampoline.write_call<5>(REL::RelocationID(37938, 38894).address() + REL::Relocate(0xE5, 0x170), thunk);
     }
     void EquipSpellHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // PC and NPC
@@ -57,14 +53,12 @@ namespace Hooks {
     }
     void UnEquipObjectPCHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // PC
-        func =
-            a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2a9, 0x2a9), thunk);
+        func = a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2a9, 0x2a9), thunk);
     }
     void UnEquipObjectNPCHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // NPC
         // Called also on PC but in a very wierd conditions, so needed only for NPC
-        func =
-            a_trampoline.write_call<5>(REL::RelocationID(37949, 38905).address() + REL::Relocate(0xfd, 0x101), thunk);
+        func = a_trampoline.write_call<5>(REL::RelocationID(37949, 38905).address() + REL::Relocate(0xfd, 0x101), thunk);
     }
     template <class T>
     void ActorUpdateHook<T>::InstallHook() {
@@ -120,6 +114,9 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                         a_playSounds, a_applyNow);
         }
+        if (!a_slot) {
+            a_slot = Utils::right_hand_slot;
+        }
         logger::trace("Equip Hook: {} {}", a_actor->GetName(), a_object->GetName());
 
         if (Utils::IsInHand(a_object)) {
@@ -131,11 +128,9 @@ namespace Hooks {
                 if (a_actor->IsPlayerRef()) {
                     auto keywordForm = a_object->As<RE::BGSKeywordForm>();
                     bool left = false;
-                    if (a_slot) {
-                        if ((a_slot->GetFormID() == Utils::EquipSlots::Left) ||
-                            (a_slot->GetFormID() == Utils::EquipSlots::Shield)) {
-                            left = true;
-                        }
+                    if ((a_slot->GetFormID() == Utils::EquipSlots::Left) ||
+                        (a_slot->GetFormID() == Utils::EquipSlots::Shield)) {
+                        left = true;
                     }
                     if ((a_object->IsArmor()) || (a_object->Is(RE::FormType::Light))) {
                         left = true;
@@ -160,11 +155,9 @@ namespace Hooks {
             }
             if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
                 if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
-                    if (a_slot) {
-                        if (Utils::IsHandFree(a_slot->GetFormID(), a_actor, a_object)) {
-                            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
-                                        a_forceEquip, a_playSounds, a_applyNow);
-                        }
+                    if (Utils::IsHandFree(a_slot->GetFormID(), a_actor, a_object)) {
+                        return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
+                                    a_forceEquip, a_playSounds, a_applyNow);
                     }
                     if (Utils::DropIfLowHP(a_actor)) {
                         return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
@@ -180,11 +173,9 @@ namespace Hooks {
                     if (a_actor->IsPlayerRef()) {
                         auto keywordForm = a_object->As<RE::BGSKeywordForm>();
                         bool left = false;
-                        if (a_slot) { 
-                            if ((a_slot->GetFormID() == Utils::EquipSlots::Left) ||
-                                (a_slot->GetFormID() == Utils::EquipSlots::Shield)) {
-                                left = true;
-                            }
+                        if ((a_slot->GetFormID() == Utils::EquipSlots::Left) ||
+                            (a_slot->GetFormID() == Utils::EquipSlots::Shield)) {
+                            left = true;
                         }
                         if ((a_object->IsArmor()) || (a_object->Is(RE::FormType::Light))) {
                             left = true;
@@ -325,53 +316,21 @@ namespace Hooks {
         }
         logger::trace("Equip Spell Hook: {} {}", a_actor->GetName(), a_spell->GetName());
 
-        if (Utils::IsInQueue(a_actor->GetFormID())) {
-            logger::trace("Equip Spell Hook: {} Is In Queue", a_actor->GetName());
-            const Utils::EquipEvent EquipEvent{nullptr, nullptr, 1, *a_slot, true, false, true, false, true, a_spell};
-            UpdateQueue(a_actor->GetFormID(), EquipEvent);
-            if (a_actor->IsPlayerRef()) {
-                auto keywordForm = a_spell->As<RE::BGSKeywordForm>();
-                bool left = false;
-                const RE::BGSEquipSlot* slot = *a_slot;
-                if (slot->GetFormID() == Utils::EquipSlots::Left) {
-                    left = true;
-                }
-                Utils::SetInventoryInfo(keywordForm, left);
-                auto UnequipObj = a_actor->GetEquippedObject(left);
-                if (UnequipObj) {
-                    auto uneqKwdForm = UnequipObj->As<RE::BGSKeywordForm>();
-                    Utils::SetInventoryInfo(uneqKwdForm, left, true);
-                }
-            }
-            a_actor->DrawWeaponMagicHands(false);
-            a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
-            return;
-        }
-        if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
-            if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
-                if (a_slot) {
-                    const RE::BGSEquipSlot* slot = *a_slot;
-                    if (slot) {
-                        if (Utils::IsHandFree(slot->GetFormID(), a_actor, nullptr)) {
-                            return func(a_manager, a_actor, a_spell, a_slot);
-                        }
-                    }
-                }
-
-                if (Utils::DropIfLowHP(a_actor)) {
-                    return func(a_manager, a_actor, a_spell, a_slot);
-                }
-
-                
-                logger::trace("Equip Spell Hook: Add {} To Queue", a_actor->GetName());
+        if (Utils::IsInHand(a_spell)) {
+            if (Utils::IsInQueue(a_actor->GetFormID())) {
+                logger::trace("Equip Spell Hook: {} Is In Queue", a_actor->GetName());
                 const Utils::EquipEvent EquipEvent{nullptr, nullptr, 1,     *a_slot, true,
                                                    false,   true,    false, true,    a_spell};
                 UpdateQueue(a_actor->GetFormID(), EquipEvent);
-                //Events::CreateEventSink(a_actor);
                 if (a_actor->IsPlayerRef()) {
                     auto keywordForm = a_spell->As<RE::BGSKeywordForm>();
                     bool left = false;
-                    const RE::BGSEquipSlot* slot = *a_slot;
+                    RE::BGSEquipSlot* slot = nullptr;
+                    if (a_slot) {
+                        slot = *a_slot;
+                    } else {
+                        slot = Utils::right_hand_slot;
+                    }
                     if (slot->GetFormID() == Utils::EquipSlots::Left) {
                         left = true;
                     }
@@ -385,6 +344,51 @@ namespace Hooks {
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                 return;
+            }
+            if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
+                if (actorState->GetWeaponState() == RE::WEAPON_STATE::kDrawn) {
+                    RE::BGSEquipSlot* slot = nullptr;
+                    if (a_slot) {
+                        slot = *a_slot;
+                    } else {
+                        slot = Utils::right_hand_slot;
+                    }
+                    if (Utils::IsHandFree(slot->GetFormID(), a_actor, nullptr)) {
+                        return func(a_manager, a_actor, a_spell, a_slot);
+                    }
+
+                    if (Utils::DropIfLowHP(a_actor)) {
+                        return func(a_manager, a_actor, a_spell, a_slot);
+                    }
+
+                    logger::trace("Equip Spell Hook: Add {} To Queue", a_actor->GetName());
+                    const Utils::EquipEvent EquipEvent{nullptr, nullptr, 1,     *a_slot, true,
+                                                       false,   true,    false, true,    a_spell};
+                    UpdateQueue(a_actor->GetFormID(), EquipEvent);
+                    // Events::CreateEventSink(a_actor);
+                    if (a_actor->IsPlayerRef()) {
+                        auto keywordForm = a_spell->As<RE::BGSKeywordForm>();
+                        bool left = false;
+                        RE::BGSEquipSlot* slot = nullptr;
+                        if (a_slot) {
+                            slot = *a_slot;
+                        } else {
+                            slot = Utils::right_hand_slot;
+                        }
+                        if (slot->GetFormID() == Utils::EquipSlots::Left) {
+                            left = true;
+                        }
+                        Utils::SetInventoryInfo(keywordForm, left);
+                        auto UnequipObj = a_actor->GetEquippedObject(left);
+                        if (UnequipObj) {
+                            auto uneqKwdForm = UnequipObj->As<RE::BGSKeywordForm>();
+                            Utils::SetInventoryInfo(uneqKwdForm, left, true);
+                        }
+                    }
+                    a_actor->DrawWeaponMagicHands(false);
+                    a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                    return;
+                }
             }
         }
         return func(a_manager, a_actor, a_spell, a_slot);
@@ -405,6 +409,9 @@ namespace Hooks {
             }
         }
         logger::trace("UnEquip Hook: {} {}", a_actor->GetName(), a_object->GetName());
+        if (!a_slot) {
+            a_slot = Utils::right_hand_slot;
+        }
 
         if (Utils::IsInHand(a_object)) {
             if (Utils::IsInQueue(a_actor->GetFormID())) {
@@ -475,6 +482,9 @@ namespace Hooks {
                 return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                             a_playSounds, a_applyNow, a_slotToReplace);
             }
+        }
+        if (!a_slot) {
+            a_slot = Utils::right_hand_slot;
         }
 
         if (Utils::IsInHand(a_object)) {
