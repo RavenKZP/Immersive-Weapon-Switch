@@ -35,7 +35,7 @@ namespace Utils {
 
     void InitGlobals();
 
-    void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata);
+    void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata, bool updateLastObj = true);
     bool IsInQueue(RE::FormID actID);
     void RemoveFromQueue(RE::FormID actID);
     void ClearQueue();
@@ -61,15 +61,17 @@ namespace Utils {
     inline RE::TESGlobal* gameHour;
     inline RE::TESGlobal* timescale;
 
-    inline std::shared_mutex actor_queue_mutex;
-    inline std::unordered_map<RE::FormID, EquipQueueData> actor_queue;
-
     inline RE::BGSEquipSlot* right_hand_slot;
     inline RE::BGSEquipSlot* left_hand_slot;
+
     inline RE::TESBoundObject* unarmed_weapon;
 
     inline RE::BGSKeyword* switch_keyword_left;
     inline RE::BGSKeyword* switch_keyword_right;
     inline RE::BGSKeyword* unequip_keyword;
+
+    inline std::shared_mutex actor_queue_mutex;
+    inline std::unordered_map<RE::FormID, EquipQueueData> actor_queue;
+
 }
 

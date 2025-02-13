@@ -81,14 +81,14 @@ namespace Utils {
         }
     }
 
-    void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata) {
+    void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata, bool updateLastObj) {
         std::unique_lock ulock(actor_queue_mutex);
         if (const auto it = actor_queue.find(actID);
             it != actor_queue.end()) {  // actor already tracked, add next event to the queue
             it->second.queue.push(equipdata);
-            if (it->second.last_object != equipdata.object) {
-                it->second.timestamp = gameHour->value;
+            if (updateLastObj && (it->second.last_object != equipdata.object)) {
                 it->second.last_object = equipdata.object;
+                it->second.timestamp = gameHour->value;
             }
         } else {  // actor not tracked
             std::queue<EquipEvent> temp_queue;
@@ -176,7 +176,7 @@ namespace Utils {
     bool IsHandFree(RE::FormID slotID, RE::Actor* actor, RE::TESBoundObject* a_object) {
         bool right_empty = false;
         bool left_empty = false;
-        const RE::TESForm* RightHandObj = actor->GetEquippedObject(false);
+        RE::TESForm* RightHandObj = actor->GetEquippedObject(false);
         const RE::TESForm* LeftHandObj = actor->GetEquippedObject(true);
 
         if (a_object && ((a_object == RightHandObj) || (a_object == LeftHandObj))) {
@@ -207,6 +207,13 @@ namespace Utils {
             right_empty = true;
         } else if (RightHandObj->IsWeapon() && RightHandObj->As<RE::TESObjectWEAP>()->IsBound()) {
             right_empty = true;
+        }
+
+        // If Right Hand is not empty and it's two handed than Left is not empty too
+        if (RightHandObj) {
+            if (!right_empty && IsTwoHanded(RightHandObj->As<RE::TESBoundObject>())) {
+                left_empty = false;
+            }
         }
 
         // For example Bows and Crossbows Requested slot is Right, when it should be both hands
@@ -287,34 +294,49 @@ namespace Utils {
     }
 
     bool DropIfLowHP(RE::Actor* a_actor) {
+        // Until I fix all bugs
+        return false;
         bool res = false;
-        if ((a_actor->IsPlayerRef() && Settings::PC_Drop_Weapons) ||
-            (!a_actor->IsPlayerRef() && Settings::NPC_Drop_Weapons)) {
-            const float curr_hp = a_actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kHealth);
-            const float max_hp = a_actor->AsActorValueOwner()->GetBaseActorValue(RE::ActorValue::kHealth);
-            if (max_hp != 0.0) {
-                if (((a_actor->IsPlayerRef()) && (curr_hp / max_hp) * 100.0f <= Settings::PC_Health_Drop) ||
-                    ((!a_actor->IsPlayerRef()) && (curr_hp / max_hp) * 100.0f <= Settings::NPC_Health_Drop)) {
-                    RE::TESForm* Left = a_actor->GetEquippedObject(true);
-                    RE::TESForm* Right = a_actor->GetEquippedObject(false);
-                    if (Left == Right) {
-                        logger::trace("{} dropping {}", a_actor->GetName(), Left->GetName());
-                        RE::TESBoundObject* bound = Left->As<RE::TESBoundObject>();
-                        a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
-                        return true;
-                    }
-                    if (Right) {
-                        logger::trace("{} dropping {}", a_actor->GetName(), Right->GetName());
-                        RE::TESBoundObject* bound = Right->As<RE::TESBoundObject>();
-                        a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
-                        res = true;
-                    }
-                    if (Left) {
-                        logger::trace("{} dropping {}", a_actor->GetName(), Left->GetName());
-                        RE::TESBoundObject* bound = Left->As<RE::TESBoundObject>();
-                        a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
-                        res = true;
-                    }
+        float DropHP = 0.0f;
+        // Player
+        if (a_actor->IsPlayerRef() && Settings::PC_Drop_Weapons) {
+            DropHP = Settings::PC_Health_Drop;
+        }
+        // Follower NPC
+        if (!a_actor->IsPlayerRef() && a_actor->IsPlayerTeammate() && Settings::Followers_Drop_Weapons) {
+            DropHP = Settings::Followers_Health_Drop;
+        }
+        // No Follower NPC
+        if (!a_actor->IsPlayerRef() && !a_actor->IsPlayerTeammate() && Settings::NPC_Drop_Weapons) {
+            DropHP = Settings::NPC_Health_Drop;
+        }
+        if (DropHP == 0.0f) { // If no match than terurn
+            return res;
+        }
+
+        const float curr_hp = a_actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kHealth);
+        const float max_hp = a_actor->AsActorValueOwner()->GetBaseActorValue(RE::ActorValue::kHealth);
+        if (max_hp != 0.0) {
+            if ((curr_hp / max_hp) * 100.0f <= DropHP) {
+                RE::TESForm* Left = a_actor->GetEquippedObject(true);
+                RE::TESForm* Right = a_actor->GetEquippedObject(false);
+                if (Left == Right) {
+                    logger::trace("{} dropping {}", a_actor->GetName(), Left->GetName());
+                    RE::TESBoundObject* bound = Left->As<RE::TESBoundObject>();
+                    a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
+                    return true;
+                }
+                if (Right) {
+                    logger::trace("{} dropping {}", a_actor->GetName(), Right->GetName());
+                    RE::TESBoundObject* bound = Right->As<RE::TESBoundObject>();
+                    a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
+                    res = true;
+                }
+                if (Left) {
+                    logger::trace("{} dropping {}", a_actor->GetName(), Left->GetName());
+                    RE::TESBoundObject* bound = Left->As<RE::TESBoundObject>();
+                    a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
+                    res = true;
                 }
             }
         }

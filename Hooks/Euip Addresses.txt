@@ -1,0 +1,31 @@
+//Equip Hooks
+
+func = a_trampoline.write_call<5>(REL::RelocationID(0, 418622).address() + REL::Relocate(0, 0x310), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(0, 418622).address() + REL::Relocate(0, 0x71c), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(19266, 19692).address() + REL::Relocate(0xff, 0xff), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(37957, 38913).address() + REL::Relocate(0x101, 0x117), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(15821, 16059).address() + REL::Relocate(0x2a44, 0x296f), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38606, 39637).address() + REL::Relocate(0xccd, 0xf47), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38902, 39948).address() + REL::Relocate(0x1a0, 0x199), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(15864, 16104).address() + REL::Relocate(0xcd, 0xcd), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(40241, 41244).address() + REL::Relocate(0x14d, 0x150), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38618, 39649).address() + REL::Relocate(0xb9c, 0xb7d), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38618, 39649).address() + REL::Relocate(0xd3c, 0xd18), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38619, 39650).address() + REL::Relocate(0x728, 0x718), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38619, 39650).address() + REL::Relocate(0x77f, 0x7b6), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38619, 39650).address() + REL::Relocate(0x7ec, 0x80c), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38619, 39650).address() + REL::Relocate(0xb22, 0xb0b), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(19263, 19689).address() + REL::Relocate(0x1b3, 0x1b1), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(28593, 29346).address() + REL::Relocate(0x84e, 0x84d), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(36781, 37797).address() + REL::Relocate(0x12b, 0x12b), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2e0, 0x2e0), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(38789, 39814).address() + REL::Relocate(0xd1, 0xcb), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(46955, 48124).address() + REL::Relocate(0x1a5, 0x1d6), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(46957, 48126).address() + REL::Relocate(0x16b, 0x136), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(51535, 52410).address() + REL::Relocate(0x6f, 0x6f), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(53861, 54661).address() + REL::Relocate(0x14e, 0x14e), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(28629, 29383).address() + REL::Relocate(0x731, 0x6a8), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(28629, 29383).address() + REL::Relocate(0x812, 0x7e1), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(28629, 29383).address() + REL::Relocate(0xd03, 0xcbb), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(37950, 38906).address() + REL::Relocate(0xf1, 0xfd), thunk);
+func = a_trampoline.write_call<5>(REL::RelocationID(37942, 38898).address() + REL::Relocate(0x20a, 0x25f), thunk);

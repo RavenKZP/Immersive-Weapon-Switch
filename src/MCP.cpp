@@ -23,17 +23,23 @@ namespace MCP {
         if (ImGui::Button("Reset Settings")) {
             Settings::ResetSettings();
         }
+        ImGui::Text("Enable/Disable Mod or it's parts");
         ImGui::Checkbox("Mod Active", &Settings::Mod_Active);
+        ImGui::Checkbox("NPC Active", &Settings::NPC_Switch);
+        ImGui::Checkbox("PC Active", &Settings::PC_Switch);
 
+        ImGui::Text("Player Drop Weapon options");
         ImGui::Checkbox("Hold 'R' To Drop", &Settings::Hold_To_Drop);
         ImGui::Checkbox("Hold 'R' To Unarmed", &Settings::Hold_To_Unarmed);
         ImGui::SliderFloat("Held Duration To Drop (sec)", &Settings::Held_Duration, 0, 10, "%.3f");
-
-        ImGui::Checkbox("NPC Drop Weapons On Change", &Settings::NPC_Drop_Weapons);
         ImGui::Checkbox("PC Drop Weapons On Change", &Settings::PC_Drop_Weapons);
-
-        ImGui::SliderFloat("NPC Health % to Drop", &Settings::NPC_Health_Drop, 0, 100, "%.0f");
         ImGui::SliderFloat("PC Health % to Drop", &Settings::PC_Health_Drop, 0, 100, "%.0f");
+
+        ImGui::Text("NPC Drop Weapon options");
+        ImGui::Checkbox("NPC Drop Weapons On Change", &Settings::NPC_Drop_Weapons);
+        ImGui::SliderFloat("NPC Health % to Drop", &Settings::NPC_Health_Drop, 0, 100, "%.0f");
+        ImGui::Checkbox("Followers Drop Weapons On Change", &Settings::Followers_Drop_Weapons);
+        ImGui::SliderFloat("Followers Health % to Drop", &Settings::Followers_Health_Drop, 0, 100, "%.0f");
     }
 
 }
