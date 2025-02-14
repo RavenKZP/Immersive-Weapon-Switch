@@ -10,7 +10,8 @@ namespace Hooks {
         auto& trampoline = SKSE::GetTrampoline();
         SKSE::AllocTrampoline(size_per_hook * 6);
 
-        ReadyWeaponHandlerHook::InstallHook();
+        // Until I fix all bugs
+        //ReadyWeaponHandlerHook::InstallHook();
 
         EquipObjectHook::InstallHook(trampoline);
         EquipObjectNoSlotHook::InstallHook(trampoline);
@@ -38,7 +39,6 @@ namespace Hooks {
         func = a_trampoline.write_call<5>(REL::RelocationID(53861, 54661).address() + REL::Relocate(0x14e, 0x14e), thunk);
     }
     void EquipObjectNoSlotHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        // Use or Take 
         // Commonlib
         func = a_trampoline.write_call<5>(REL::RelocationID(37938, 38894).address() + REL::Relocate(0xE5, 0x170), thunk);
     }
@@ -61,10 +61,8 @@ namespace Hooks {
         func = a_trampoline.write_call<5>(REL::RelocationID(37949, 38905).address() + REL::Relocate(0xfd, 0x101), thunk);
     }
     void UnEquipObjectNoSlotHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        // Wheeler 
-        // nope sorry Wheeler need to fix it's Weapon equip code I can't bypass this
         // Commonlib
-        // func = a_trampoline.write_call<5>(REL::RelocationID(37945, 38901).address() + REL::Relocate(0x138, 0x1b9), thunk);
+        func = a_trampoline.write_call<5>(REL::RelocationID(37945, 38901).address() + REL::Relocate(0x138, 0x1b9), thunk);
     }
     template <class T>
     void ActorUpdateHook<T>::InstallHook() {
@@ -666,9 +664,11 @@ namespace Hooks {
                 RE::BGSKeywordForm* kwdForm = nullptr;
                 if (currEvent.equip) {
                     if (currEvent.spell) {
+                        logger::trace("Equip Spell {}", currEvent.spell->GetName());
                         kwdForm = currEvent.spell->As<RE::BGSKeywordForm>();
                         RE::ActorEquipManager::GetSingleton()->EquipSpell(a_actor, currEvent.spell, currEvent.slot);
                     } else {
+                        logger::trace("Equip Object {}", currEvent.object->GetName());
                         RE::TESObjectREFR::InventoryItemMap inv = a_actor->GetInventory();
                         auto it = inv.find(currEvent.object);
                         if (it != inv.end()) {
@@ -682,6 +682,7 @@ namespace Hooks {
                         }
                     }
                 } else {
+                    logger::trace("UnEquip Object {}", currEvent.object->GetName());
                     kwdForm = currEvent.object->As<RE::BGSKeywordForm>();
                     RE::ActorEquipManager::GetSingleton()->UnequipObject(
                         a_actor, currEvent.object, currEvent.extraData, currEvent.count, currEvent.slot,
