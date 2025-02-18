@@ -52,7 +52,7 @@ namespace Hooks {
         func = a_trampoline.write_call<5>(REL::RelocationID(37939, 38895).address() + REL::Relocate(0x47, 0x47), thunk); 
     }
     void UnEquipObjectPCHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        // PC
+        // Menu
         func = a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2a9, 0x2a9), thunk);
     }
     void UnEquipObjectNPCHook::InstallHook(SKSE::Trampoline& a_trampoline) {
@@ -228,12 +228,14 @@ namespace Hooks {
 
         logger::trace("Equip Hook No Slot: {} {}", a_actor->GetName(), a_object->GetName());
 
+        if (a_actor->IsPlayerRef()) {
+            Utils::last_player_object = a_object;
+        }
+
         if (Utils::IsInHand(a_object)) {
             if (Utils::IsInQueue(a_actor->GetFormID())) {
                 logger::trace("Equip Hook No Slot: {} Is In Queue", a_actor->GetName());
-                // Check if this object is already tracked by EquipHook
-                // This function is always called After Main Equip hook 
-                // but sometimes (e.g. Use or Take) call this dirlectly
+
                 if (a_object && a_object == Utils::GetLastObject(a_actor->GetFormID())) {
                     logger::trace("Whitelisted object: {}", a_object->GetName());
                     return func(a_manager, a_actor, a_object, a_unk);
@@ -436,7 +438,11 @@ namespace Hooks {
                             a_playSounds, a_applyNow, a_slotToReplace);
             }
         }
-        logger::trace("UnEquip Hook: {} {}", a_actor->GetName(), a_object->GetName());
+        if (Utils::IsWhitelistUnequip(a_object)) {
+            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                        a_playSounds, a_applyNow, a_slotToReplace);
+        }
+        logger::trace("UnEquip PC Hook: {} {}", a_actor->GetName(), a_object->GetName());
         if (!a_slot) {
             a_slot = Utils::right_hand_slot;
         }
@@ -511,6 +517,11 @@ namespace Hooks {
                             a_playSounds, a_applyNow, a_slotToReplace);
             }
         }
+        if (Utils::IsWhitelistUnequip(a_object)) {
+            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                        a_playSounds, a_applyNow, a_slotToReplace);
+        }
+        logger::trace("UnEquip NPC Hook: {} {}", a_actor->GetName(), a_object->GetName());
         if (!a_slot) {
             a_slot = Utils::right_hand_slot;
         }
@@ -556,14 +567,22 @@ namespace Hooks {
                 return func(a_manager, a_actor, a_object, a_unk);
             }
         }
+        if (Utils::IsWhitelistUnequip(a_object)) {
+            return func(a_manager, a_actor, a_object, a_unk);
+        }
         logger::trace("UnEquip Hook No Slot: {} {}", a_actor->GetName(), a_object->GetName());
+
+        if (a_actor->IsPlayerRef()) {
+            if (Utils::last_player_object == a_object) {
+                Utils::last_player_object = a_object;
+                return func(a_manager, a_actor, a_object, a_unk);
+            }
+            Utils::last_player_object = a_object;
+        }
 
         if (Utils::IsInHand(a_object)) {
             if (Utils::IsInQueue(a_actor->GetFormID())) {
                 logger::trace("UnEquip Hook No Slot: {} Is In Queue", a_actor->GetName());
-                // Check if this object is already tracked by UnEquipHook
-                // This function is always called After Main UnEquip hook
-                // but sometimes (e.g. Wheeler) call this dirlectly
                 if (a_object == Utils::GetLastObject(a_actor->GetFormID())) {
                     return func(a_manager, a_actor, a_object, a_unk);
                 }
@@ -572,7 +591,11 @@ namespace Hooks {
                 UpdateQueue(a_actor->GetFormID(), EquipEvent, false);
                 if (a_actor->IsPlayerRef()) {
                     auto keywordForm = a_object->As<RE::BGSKeywordForm>();
-                    Utils::SetInventoryInfo(keywordForm, false, true);
+                    bool left = false;
+                    if (a_actor->GetEquippedObject(true) == a_object) {
+                        left = true;
+                    }
+                    Utils::SetInventoryInfo(keywordForm, left, true);
                 }
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
@@ -587,7 +610,11 @@ namespace Hooks {
                     // Events::CreateEventSink(a_actor);
                     if (a_actor->IsPlayerRef()) {
                         auto keywordForm = a_object->As<RE::BGSKeywordForm>();
-                        Utils::SetInventoryInfo(keywordForm, false, true);
+                        bool left = false;
+                        if (a_actor->GetEquippedObject(true) == a_object) {
+                            left = true;
+                        }
+                        Utils::SetInventoryInfo(keywordForm, left, true);
                     }
                     a_actor->DrawWeaponMagicHands(false);
                     a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
@@ -608,6 +635,21 @@ namespace Hooks {
         if ((!Settings::PC_Switch && a_actor->IsPlayerRef()) || (!Settings::NPC_Switch && !a_actor->IsPlayerRef())) {
             return func(a_actor, a_delta);
         }
+        if (a_actor->IsPlayerRef()) {
+            Utils::last_player_object = nullptr;
+            if (a_actor->AsActorState()->IsWeaponDrawn()) {
+                auto EqObj = a_actor->GetEquippedObject(true);
+                if (EqObj) {
+                    auto kwdForm = EqObj->As<RE::BGSKeywordForm>();
+                    Utils::RemoveDrawingInfo(kwdForm);
+                }
+                EqObj = a_actor->GetEquippedObject(false);
+                if (EqObj) {
+                    auto kwdForm = EqObj->As<RE::BGSKeywordForm>();
+                    Utils::RemoveDrawingInfo(kwdForm);
+                }
+            }
+        }
 
         if (!Utils::IsInQueue(a_actor->GetFormID())) {
             return func(a_actor, a_delta);
@@ -619,9 +661,8 @@ namespace Hooks {
         }
 
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {  // nullptr check
-            RE::WEAPON_STATE weaponState = actorState->GetWeaponState();
 
-            if (weaponState != RE::WEAPON_STATE::kSheathed) {
+            if (actorState->GetWeaponState() != RE::WEAPON_STATE::kSheathed) {
                 if (actorState->actorState2.staggered) {
                     Utils::UpdateTimestamp(a_actor->GetFormID());
                 }
@@ -660,7 +701,7 @@ namespace Hooks {
 
             // Execute all Queued actions
             while (!equipQueue.empty()) {
-                const Utils::EquipEvent& currEvent = equipQueue.front();
+                Utils::EquipEvent& currEvent = equipQueue.front();
                 RE::BGSKeywordForm* kwdForm = nullptr;
                 if (currEvent.equip) {
                     if (currEvent.spell) {
@@ -672,23 +713,42 @@ namespace Hooks {
                         RE::TESObjectREFR::InventoryItemMap inv = a_actor->GetInventory();
                         auto it = inv.find(currEvent.object);
                         if (it != inv.end()) {
-                            if (it->second.first > 0) {
+                            const RE::TESForm* RightHandObj = a_actor->GetEquippedObject(false);
+                            const RE::TESForm* LeftHandObj = a_actor->GetEquippedObject(true);
+                            int minial_inv_count = 1;
+                            if ((RightHandObj == currEvent.object) || (LeftHandObj == currEvent.object)) {
+                                minial_inv_count = 2;
+                                currEvent.extraData = nullptr; // Let game choose what 2'nd weapon to equip
+                            }
+                            if (it->second.first >= minial_inv_count) {
                                 kwdForm = currEvent.object->As<RE::BGSKeywordForm>();
                                 RE::ActorEquipManager::GetSingleton()->EquipObject(
                                     a_actor, currEvent.object, currEvent.extraData, currEvent.count, currEvent.slot,
                                     currEvent.queueEquip, currEvent.forceEquip, currEvent.playSounds,
                                     currEvent.applyNow);
+                                bool left = false;
+                                if (currEvent.slot && (currEvent.slot->GetFormID() == Utils::EquipSlots::Left ||
+                                                       currEvent.slot->GetFormID() == Utils::EquipSlots::Shield)) {
+                                    left = true;
+                                }
+                                if (currEvent.object->Is(RE::FormType::Light) || currEvent.object->IsArmor() ) {
+                                    left = true;
+                                }
                             }
                         }
                     }
                 } else {
                     logger::trace("UnEquip Object {}", currEvent.object->GetName());
                     kwdForm = currEvent.object->As<RE::BGSKeywordForm>();
-                    RE::ActorEquipManager::GetSingleton()->UnequipObject(
-                        a_actor, currEvent.object, currEvent.extraData, currEvent.count, currEvent.slot,
-                        currEvent.queueEquip, currEvent.forceEquip, currEvent.playSounds, currEvent.applyNow);
+                    const RE::TESForm* RightHandObj = a_actor->GetEquippedObject(false);
+                    const RE::TESForm* LeftHandObj = a_actor->GetEquippedObject(true);
+                    if (currEvent.object == RightHandObj || currEvent.object == LeftHandObj) { //Check if there is something to unequip
+                        RE::ActorEquipManager::GetSingleton()->UnequipObject(
+                            a_actor, currEvent.object, currEvent.extraData, currEvent.count, currEvent.slot,
+                            currEvent.queueEquip, currEvent.forceEquip, currEvent.playSounds, currEvent.applyNow);
+                    }
                 }
-                if (a_actor->IsPlayerRef()) {
+                if (kwdForm && a_actor->IsPlayerRef()) {
                     Utils::RemoveInventoryInfo(kwdForm);
                 }
                 // Keep kSheathed state until all queue is executed

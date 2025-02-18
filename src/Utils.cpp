@@ -68,9 +68,12 @@ namespace Utils {
         gameHour = RE::TESForm::LookupByEditorID("gamehour")->As<RE::TESGlobal>();
         timescale = RE::TESForm::LookupByEditorID("timescale")->As<RE::TESGlobal>();
 
-        switch_keyword_left = FindOrCreateKeyword("I4IWS_SwitchInProgressLeft");
-        switch_keyword_right = FindOrCreateKeyword("I4IWS_SwitchInProgressRight");
-        unequip_keyword = FindOrCreateKeyword("I4IWS_UnequipInProgress");
+        switch_keyword_left = FindOrCreateKeyword("IWS_SwitchInProgressLeft");
+        switch_keyword_right = FindOrCreateKeyword("IWS_SwitchInProgressRight");
+        unequip_keyword_left = FindOrCreateKeyword("IWS_UnequipInProgressLeft");
+        unequip_keyword_right = FindOrCreateKeyword("IWS_UnequipInProgressRight");
+        equip_keyword_left = FindOrCreateKeyword("IWS_EquipInProgressLeft");
+        equip_keyword_right = FindOrCreateKeyword("IWS_EquipInProgressRight");
         
 
         if (unarmed_weapon && right_hand_slot && left_hand_slot && gameHour && timescale && switch_keyword_right &&
@@ -173,6 +176,15 @@ namespace Utils {
         return false;
     }
 
+    bool IsWhitelistUnequip(RE::TESBoundObject* a_object) {
+        bool res = false;
+        if (a_object->Is(RE::FormType::Light) || a_object->Is(RE::FormType::Scroll) ||
+            a_object->Is(RE::FormType::Spell)) {
+            res = true;
+        }
+        return res;
+    }
+
     bool IsHandFree(RE::FormID slotID, RE::Actor* actor, RE::TESBoundObject* a_object) {
         bool right_empty = false;
         bool left_empty = false;
@@ -222,9 +234,9 @@ namespace Utils {
                 slotID = EquipSlots::Both;
             }
         }
-        // For Shields Requested slot is Right, when it should be Left
+        // For Shields and Lights Requested slot is Right, when it should be Left
         if (a_object) {
-            if (a_object->IsArmor()) {
+            if (a_object->IsArmor() || a_object->Is(RE::FormType::Light)) {
                 slotID = EquipSlots::Left;
             }
         }
@@ -310,7 +322,7 @@ namespace Utils {
         if (!a_actor->IsPlayerRef() && !a_actor->IsPlayerTeammate() && Settings::NPC_Drop_Weapons) {
             DropHP = Settings::NPC_Health_Drop;
         }
-        if (DropHP == 0.0f) { // If no match than terurn
+        if (DropHP == 0.0f) {  // If no match than terurn
             return res;
         }
 
@@ -344,18 +356,26 @@ namespace Utils {
     }
 
     void SetInventoryInfo(RE::BGSKeywordForm* kwdForm, bool left, bool unequip) {
+        static RE::BGSKeywordForm* previous_left = nullptr;
+        static RE::BGSKeywordForm* previous_right = nullptr;
         auto player = RE::PlayerCharacter::GetSingleton();
+
         if (unequip) {
-            if (kwdForm && unequip_keyword) {
-                if (!kwdForm->HasKeyword(unequip_keyword)) {
-                    kwdForm->AddKeyword(unequip_keyword);
+            if (left) {
+                if (kwdForm && unequip_keyword_left) {
+                    if (!kwdForm->HasKeyword(unequip_keyword_left)) {
+                        kwdForm->AddKeyword(unequip_keyword_left);
+                    }
+                }
+            } else {
+                if (kwdForm && unequip_keyword_right) {
+                    if (!kwdForm->HasKeyword(unequip_keyword_right)) {
+                        kwdForm->AddKeyword(unequip_keyword_right);
+                    }
                 }
             }
             return;
         }
-
-        static RE::BGSKeywordForm* previous_left = nullptr;
-        static RE::BGSKeywordForm* previous_right = nullptr;
 
         if (left && previous_left) {
             RemoveInventoryInfo(previous_left);
@@ -369,7 +389,6 @@ namespace Utils {
             if (kwdForm && switch_keyword_left) {
                 if (!kwdForm->HasKeyword(switch_keyword_left)) {
                     kwdForm->AddKeyword(switch_keyword_left);
-                    //player->As<RE::BGSKeywordForm>()->AddKeyword(switch_keyword_left);
                 }
             }
         } else {
@@ -377,7 +396,6 @@ namespace Utils {
             if (kwdForm && switch_keyword_right) {
                 if (!kwdForm->HasKeyword(switch_keyword_right)) {
                     kwdForm->AddKeyword(switch_keyword_right);
-                    //player->As<RE::BGSKeywordForm>()->AddKeyword(switch_keyword_right);
                 }
             }
         }
@@ -389,20 +407,55 @@ namespace Utils {
         if (kwdForm && switch_keyword_left) {
             if (kwdForm->HasKeyword(switch_keyword_left)) {
                 kwdForm->RemoveKeyword(switch_keyword_left);
-                //player->As<RE::BGSKeywordForm>()->RemoveKeyword(switch_keyword_left);
             }
         }
         if (kwdForm && switch_keyword_right) {
             if (kwdForm->HasKeyword(switch_keyword_right)) {
                 kwdForm->RemoveKeyword(switch_keyword_right);
-                //player->As<RE::BGSKeywordForm>()->RemoveKeyword(switch_keyword_right);
             }
         }
-        if (kwdForm && unequip_keyword) {
-            if (kwdForm->HasKeyword(unequip_keyword)) {
-                kwdForm->RemoveKeyword(unequip_keyword);
+        if (kwdForm && unequip_keyword_left) {
+            if (kwdForm->HasKeyword(unequip_keyword_left)) {
+                kwdForm->RemoveKeyword(unequip_keyword_left);
+                AddDrawingInfo(kwdForm, true);
+            }
+        }
+        if (kwdForm && unequip_keyword_right) {
+            if (kwdForm->HasKeyword(unequip_keyword_right)) {
+                kwdForm->RemoveKeyword(unequip_keyword_right);
+                AddDrawingInfo(kwdForm, false);
             }
         }
         RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
     }
-}
+
+    void AddDrawingInfo(RE::BGSKeywordForm* kwdForm, bool left) {
+        if (left) {
+            if (kwdForm && equip_keyword_left) {
+                if (!kwdForm->HasKeyword(equip_keyword_left)) {
+                    kwdForm->AddKeyword(equip_keyword_left);
+                }
+            }
+        } else {
+            if (kwdForm && equip_keyword_right) {
+                if (!kwdForm->HasKeyword(equip_keyword_right)) {
+                    kwdForm->AddKeyword(equip_keyword_right);
+                }
+            }
+        }
+    }
+
+    void RemoveDrawingInfo(RE::BGSKeywordForm* kwdForm) {
+        if (kwdForm && equip_keyword_left) {
+            if (kwdForm->HasKeyword(equip_keyword_left)) {
+                kwdForm->RemoveKeyword(equip_keyword_left);
+            }
+        }
+        if (kwdForm && equip_keyword_right) {
+            if (kwdForm->HasKeyword(equip_keyword_right)) {
+                kwdForm->RemoveKeyword(equip_keyword_right);
+            }
+        }
+    }
+
+} // Utils

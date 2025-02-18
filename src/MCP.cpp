@@ -28,6 +28,7 @@ namespace MCP {
         ImGui::Checkbox("NPC Active", &Settings::NPC_Switch);
         ImGui::Checkbox("PC Active", &Settings::PC_Switch);
 
+        /*
         ImGui::Text("Player Drop Weapon options");
         ImGui::Checkbox("Hold 'R' To Drop", &Settings::Hold_To_Drop);
         ImGui::Checkbox("Hold 'R' To Unarmed", &Settings::Hold_To_Unarmed);
@@ -40,6 +41,7 @@ namespace MCP {
         ImGui::SliderFloat("NPC Health % to Drop", &Settings::NPC_Health_Drop, 0, 100, "%.0f");
         ImGui::Checkbox("Followers Drop Weapons On Change", &Settings::Followers_Drop_Weapons);
         ImGui::SliderFloat("Followers Health % to Drop", &Settings::Followers_Health_Drop, 0, 100, "%.0f");
+        */
     }
 
 }

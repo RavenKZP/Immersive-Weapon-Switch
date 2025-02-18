@@ -17,7 +17,7 @@ namespace Utils {
         const RE::BGSEquipSlot* slot = nullptr;
         bool queueEquip = true;
         bool forceEquip = false;
-        bool playSounds = true;
+        bool playSounds = false;
         bool applyNow = false;
         bool equip = true;
 
@@ -35,6 +35,7 @@ namespace Utils {
 
     void InitGlobals();
 
+    // Queue Related Functions
     void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata, bool updateLastObj = true);
     bool IsInQueue(RE::FormID actID);
     void RemoveFromQueue(RE::FormID actID);
@@ -46,6 +47,8 @@ namespace Utils {
 
     // Returns true whenever given object is equipable in left, right or both hands
     bool IsInHand(RE::TESBoundObject* a_object);
+    // Returns true whenever object don't have unequip animation (e.g. Lights)
+    bool IsWhitelistUnequip(RE::TESBoundObject* a_object);
     // Returns True whenever hand is empty or equiped with scroll/spell
     bool IsHandFree(RE::FormID slotID, RE::Actor* actor, RE::TESBoundObject* a_object);
     // Returns True whenever given object is two handed weapon
@@ -57,6 +60,8 @@ namespace Utils {
 
     void SetInventoryInfo(RE::BGSKeywordForm* kwdForm, bool left, bool unequip = false);
     void RemoveInventoryInfo(RE::BGSKeywordForm* kwdForm);
+    void AddDrawingInfo(RE::BGSKeywordForm* kwdForm, bool left);
+    void RemoveDrawingInfo(RE::BGSKeywordForm* kwdForm);
 
     inline RE::TESGlobal* gameHour;
     inline RE::TESGlobal* timescale;
@@ -68,10 +73,15 @@ namespace Utils {
 
     inline RE::BGSKeyword* switch_keyword_left;
     inline RE::BGSKeyword* switch_keyword_right;
-    inline RE::BGSKeyword* unequip_keyword;
+    inline RE::BGSKeyword* unequip_keyword_left;
+    inline RE::BGSKeyword* unequip_keyword_right;
+    inline RE::BGSKeyword* equip_keyword_left;
+    inline RE::BGSKeyword* equip_keyword_right;
 
     inline std::shared_mutex actor_queue_mutex;
     inline std::unordered_map<RE::FormID, EquipQueueData> actor_queue;
+
+    inline RE::TESBoundObject* last_player_object;
 
 }
 
