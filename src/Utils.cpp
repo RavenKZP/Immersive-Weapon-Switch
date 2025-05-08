@@ -64,91 +64,170 @@ namespace Utils {
         left_hand_slot = RE::BGSDefaultObjectManager::GetSingleton()->GetObject<RE::BGSEquipSlot>(
             RE::DEFAULT_OBJECT::kLeftHandEquip);
 
-        // Needed for timeout calculation
-        gameHour = RE::TESForm::LookupByEditorID("gamehour")->As<RE::TESGlobal>();
-        timescale = RE::TESForm::LookupByEditorID("timescale")->As<RE::TESGlobal>();
-
         switch_keyword_left = FindOrCreateKeyword("IWS_SwitchInProgressLeft");
         switch_keyword_right = FindOrCreateKeyword("IWS_SwitchInProgressRight");
+
         unequip_keyword_left = FindOrCreateKeyword("IWS_UnequipInProgressLeft");
         unequip_keyword_right = FindOrCreateKeyword("IWS_UnequipInProgressRight");
+
         equip_keyword_left = FindOrCreateKeyword("IWS_EquipInProgressLeft");
         equip_keyword_right = FindOrCreateKeyword("IWS_EquipInProgressRight");
-        
 
-        if (unarmed_weapon && right_hand_slot && left_hand_slot && gameHour && timescale && switch_keyword_right &&
-            switch_keyword_left) {
+        if (unarmed_weapon && right_hand_slot && left_hand_slot && switch_keyword_right && switch_keyword_left &&
+            unequip_keyword_left && unequip_keyword_right && equip_keyword_left && equip_keyword_right) {
+
             logger::info("Global variables initialized");
         } else {
             logger::error("Error during Initialization of Global variables");
         }
     }
 
-    void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata, bool updateLastObj) {
-        std::unique_lock ulock(actor_queue_mutex);
-        if (const auto it = actor_queue.find(actID);
-            it != actor_queue.end()) {  // actor already tracked, add next event to the queue
-            it->second.queue.push(equipdata);
-            if (updateLastObj && (it->second.last_object != equipdata.object)) {
-                it->second.last_object = equipdata.object;
-                it->second.timestamp = gameHour->value;
+    void UpdateEventInfo(RE::Actor* act, RE::TESBoundObject* object, bool left, bool unequip) {
+        logger::trace("UpdateEventInfo: {} {}", act->GetName(), object->GetName());
+        std::unique_lock ulock(actor_equip_event_mutex);
+        if (const auto it = actor_equip_event.find(act);
+            it != actor_equip_event.end()) {  // actor already tracked, udpate event
+            logger::trace("actor already tracked, udpate event");
+            if (left) {
+                if (!unequip) {  // always update if equip call
+                    it->second.left = object;
+                    it->second.unequip_left = unequip;
+                } else {
+                    if (!it->second.left) {  // only update unequip if empty
+                        it->second.left = object;
+                        it->second.unequip_left = unequip;
+                    }
+                }
+            } else {
+                if (!unequip) {  // always update if equip call
+                    it->second.right = object;
+                    it->second.unequip_right = unequip;
+                    if (IsTwoHanded(object)) {
+                        it->second.left = nullptr;
+                        it->second.unequip_left = true;
+                    }
+                } else {
+                    if (!it->second.left) {  // only update unequip if empty
+                        it->second.right = object;
+                        it->second.unequip_right = unequip;
+                    }
+                }
             }
+            logger::trace("Event state:");
+            logger::trace("Right: {}", it->second.right ? it->second.right->GetName() : "nullptr");
+            logger::trace("Left: {}", it->second.left ? it->second.left->GetName() : "nullptr");
         } else {  // actor not tracked
-            std::queue<EquipEvent> temp_queue;
-            temp_queue.push(equipdata);
-            actor_queue.insert({actID, EquipQueueData{temp_queue, equipdata.object, gameHour->value}});
+            logger::trace("actor not tracked");
+            EquipEvent temp_event;
+            if (left) {
+                temp_event.left = object;
+                temp_event.unequip_left = unequip;
+            } else {
+                temp_event.right = object;
+                temp_event.unequip_right = unequip;
+            }
+            logger::trace("Event state:");
+            logger::trace("Right: {}", temp_event.right ? temp_event.right->GetName() : "nullptr");
+            logger::trace("Left: {}", temp_event.left ? temp_event.left->GetName() : "nullptr");
+            actor_equip_event.insert({act, temp_event});
         }
     }
 
-    bool IsInQueue(const RE::FormID actID) {
-        std::shared_lock ulock(actor_queue_mutex);
-        return actor_queue.contains(actID);
+    bool IsAlreadyTracked(RE::Actor* act) {
+        std::shared_lock ulock(actor_equip_event_mutex);
+        return actor_equip_event.contains(act);
     }
 
-    void RemoveFromQueue(const RE::FormID actID) {
-        std::unique_lock ulock(actor_queue_mutex);
-        if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
-            actor_queue.erase(it);
+    void RemoveEvent(RE::Actor* act) {
+        std::unique_lock ulock(actor_equip_event_mutex);
+        if (const auto it = actor_equip_event.find(act); it != actor_equip_event.end()) {
+            actor_equip_event.erase(it);
         }
     }
 
-    void ClearQueue() {
-        std::unique_lock ulock(actor_queue_mutex);
-        actor_queue.clear();
+    void RemoveEvent(const RE::Actor* act) {
+        std::unique_lock ulock(actor_equip_event_mutex);
+        RE::Actor* a_actor = const_cast<RE::Actor*>(act);
+        if (const auto it = actor_equip_event.find(a_actor); it != actor_equip_event.end()) {
+            actor_equip_event.erase(it);
+        }
     }
 
-    std::queue<EquipEvent> GetQueue(const RE::FormID actID) {
-        std::shared_lock ulock(actor_queue_mutex);
-        std::queue<EquipEvent> res;
-        if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
-            res = it->second.queue;
+    void ClearAllEvents() {
+        std::unique_lock ulock(actor_equip_event_mutex);
+        actor_equip_event.clear();
+    }
+
+    EquipEvent GetEvent(RE::Actor* act) {
+        std::shared_lock ulock(actor_equip_event_mutex);
+        EquipEvent res;
+        if (const auto it = actor_equip_event.find(act); it != actor_equip_event.end()) {
+            res = it->second;
+        }
+        return res;
+    }
+
+    EquipEvent GetEvent(const RE::Actor* act) {
+        std::shared_lock ulock(actor_equip_event_mutex);
+        EquipEvent res;
+        RE::Actor* a_actor = const_cast<RE::Actor*>(act);
+        if (const auto it = actor_equip_event.find(a_actor); it != actor_equip_event.end()) {
+            res = it->second;
         }
         return res;
     }
 
-    void UpdateTimestamp(RE::FormID actID) {
-        std::unique_lock ulock(actor_queue_mutex);
-        if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
-            it->second.timestamp = gameHour->value;
-        }
+    RE::Actor* GetActor(const RE::Actor* act) {
+        RE::Actor* a_actor = RE::TESForm::LookupByID(act->GetFormID())->As<RE::Actor>();
+        return a_actor;
     }
 
-    float GetTimestamp(RE::FormID actID) {
-        std::shared_lock ulock(actor_queue_mutex);
-        float res = 0.0f;
-        if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
-            res = it->second.timestamp;
-        }
-        return res;
-    }
+    void ExecuteEvent(const RE::Actor* const_act) {
+        RE::Actor* actor = GetActor(const_act);
+        EquipEvent eqEve = GetEvent(const_act);
 
-    RE::TESBoundObject* GetLastObject(RE::FormID actID) {
-        std::shared_lock ulock(actor_queue_mutex);
-        RE::TESBoundObject* res = nullptr;
-        if (const auto it = actor_queue.find(actID); it != actor_queue.end()) {
-            res = it->second.last_object;
+        actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kSheathed;
+
+        auto EqManager = RE::ActorEquipManager::GetSingleton();
+        if (eqEve.right) {
+            logger::trace("Equiping right: {} {}", actor->GetName(), eqEve.right->GetName());
+            if (eqEve.right->As<RE::SpellItem>()) {
+                EqManager->EquipSpell(actor, eqEve.right->As<RE::SpellItem>(), Utils::right_hand_slot);
+            } else {
+                if (eqEve.unequip_right) {
+                    EqManager->UnequipObject(actor, eqEve.right, nullptr, 1, Utils::right_hand_slot, false);
+                } else {
+                    EqManager->EquipObject(actor, eqEve.right, nullptr, 1, Utils::right_hand_slot, false);
+                }
+            }
         }
-        return res;
+        if (eqEve.left) {
+            logger::trace("Equiping left: {}", actor->GetName(), eqEve.left->GetName());
+            if (eqEve.left->As<RE::SpellItem>()) {
+                EqManager->EquipSpell(actor, eqEve.left->As<RE::SpellItem>(), Utils::left_hand_slot);
+            } else {
+                if (IsLeftOnly(eqEve.left)) {
+                    if (eqEve.unequip_left) {
+                        EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, Utils::right_hand_slot, false);
+                    } else {
+                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, Utils::right_hand_slot, false);
+                    }
+                } else {
+                    if (eqEve.unequip_left) {
+                        EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, Utils::left_hand_slot, false);
+                    } else {
+                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, Utils::left_hand_slot, false);
+                    }
+                }
+            }
+        }
+        RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
+
+        // No idea why this order matter, but it does
+        actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToDraw;
+        actor->DrawWeaponMagicHands(true);
+
+        Utils::RemoveEvent(actor);
     }
 
     bool IsInHand(RE::TESBoundObject* a_object) {
@@ -185,87 +264,10 @@ namespace Utils {
         return res;
     }
 
-    bool IsHandFree(RE::FormID slotID, RE::Actor* actor, RE::TESBoundObject* a_object) {
-        bool right_empty = false;
-        bool left_empty = false;
-        RE::TESForm* RightHandObj = actor->GetEquippedObject(false);
-        const RE::TESForm* LeftHandObj = actor->GetEquippedObject(true);
-
-        if (a_object && ((a_object == RightHandObj) || (a_object == LeftHandObj))) {
-            return true;
-        }
-
-        if (LeftHandObj == nullptr) {
-            left_empty = true;
-        } else if (LeftHandObj == unarmed_weapon) {
-            left_empty = true;
-        } else if (LeftHandObj->Is(RE::FormType::Spell)) {
-            left_empty = true;
-        } else if (LeftHandObj->Is(RE::FormType::Scroll)) {
-            left_empty = true;
-        } else if (LeftHandObj->Is(RE::FormType::Light)) {
-            left_empty = true;
-        } else if (LeftHandObj->IsWeapon() && LeftHandObj->As<RE::TESObjectWEAP>()->IsBound()) {
-            left_empty = true;
-        }
-
-        if (RightHandObj == nullptr) {
-            right_empty = true;
-        } else if (RightHandObj == unarmed_weapon) {
-            right_empty = true;
-        } else if (RightHandObj->Is(RE::FormType::Spell)) {
-            right_empty = true;
-        } else if (RightHandObj->Is(RE::FormType::Scroll)) {
-            right_empty = true;
-        } else if (RightHandObj->IsWeapon() && RightHandObj->As<RE::TESObjectWEAP>()->IsBound()) {
-            right_empty = true;
-        }
-
-        // If Right Hand is not empty and it's two handed than Left is not empty too
-        if (RightHandObj) {
-            if (!right_empty && IsTwoHanded(RightHandObj->As<RE::TESBoundObject>())) {
-                left_empty = false;
-            }
-        }
-
-        // For example Bows and Crossbows Requested slot is Right, when it should be both hands
-        if (a_object) {
-            if (IsTwoHanded(a_object)) {
-                slotID = EquipSlots::Both;
-            }
-        }
-        // For Shields and Lights Requested slot is Right, when it should be Left
-        if (a_object) {
-            if (a_object->IsArmor() || a_object->Is(RE::FormType::Light)) {
-                slotID = EquipSlots::Left;
-            }
-        }
-
-        logger::trace("IsHandFree Right {} Left {}, Requesetd {}", right_empty, left_empty,
-                      Helper::GetSlotAsString(slotID));
-
-        switch (slotID) {
-            case EquipSlots::Left:
-            case EquipSlots::Shield: {
-                return left_empty;
-            }
-            case EquipSlots::Right: {
-                return right_empty;
-            }
-            case EquipSlots::Both: {
-                return (right_empty && left_empty);
-            }
-            default: {
-                return false;
-            }
-        }
-    }
-
     bool IsTwoHanded(RE::TESBoundObject* a_object) {
         if (a_object) {
             if ((a_object->IsWeapon()) &&
-                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) || 
-                 (a_object->As<RE::TESObjectWEAP>()->IsCrossbow()) ||
+                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) || (a_object->As<RE::TESObjectWEAP>()->IsCrossbow()) ||
                  (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedAxe()) ||
                  (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedSword()))) {
                 return true;
@@ -274,83 +276,16 @@ namespace Utils {
         return false;
     }
 
-    EquipSlots SetEquipSlot(RE::TESBoundObject* a_object, RE::Actor* a_actor) {
-        EquipSlots slot = EquipSlots::Right;
-        if (a_object->IsArmor()) {
-            slot = EquipSlots::Shield;
-        } else if (a_object->Is(RE::FormType::Light)) {
-            slot = EquipSlots::Left;
-        } else if (a_object->IsWeapon()) {
-            switch (a_object->As<RE::TESObjectWEAP>()->GetWeaponType()) {
-                case (RE::WeaponTypes::WEAPON_TYPE::kTwoHandAxe):
-                case (RE::WeaponTypes::WEAPON_TYPE::kTwoHandSword):
-                case (RE::WeaponTypes::WEAPON_TYPE::kBow):
-                case (RE::WeaponTypes::WEAPON_TYPE::kCrossbow): {
-                    slot = EquipSlots::Both;
-                    break;
-                }
-                default: {
-                    const RE::TESForm* RightHandObj = a_actor->GetEquippedObject(false);
-                    if (IsHandFree(EquipSlots::Right, a_actor, a_object)) {
-                        slot = EquipSlots::Right;
-                    } else if (IsHandFree(EquipSlots::Left, a_actor, a_object)) {
-                        slot = EquipSlots::Left;
-                    } else if (RightHandObj == a_object) {
-                        slot = EquipSlots::Left;
-                    }
-                    break;
-                }
-            }
-        }
-        return slot;
-    }
-
-    bool DropIfLowHP(RE::Actor* a_actor) {
-        // Until I fix all bugs
-        return false;
+    bool IsLeftOnly(RE::TESBoundObject* a_object) {
         bool res = false;
-        float DropHP = 0.0f;
-        // Player
-        if (a_actor->IsPlayerRef() && Settings::PC_Drop_Weapons) {
-            DropHP = Settings::PC_Health_Drop;
-        }
-        // Follower NPC
-        if (!a_actor->IsPlayerRef() && a_actor->IsPlayerTeammate() && Settings::Followers_Drop_Weapons) {
-            DropHP = Settings::Followers_Health_Drop;
-        }
-        // No Follower NPC
-        if (!a_actor->IsPlayerRef() && !a_actor->IsPlayerTeammate() && Settings::NPC_Drop_Weapons) {
-            DropHP = Settings::NPC_Health_Drop;
-        }
-        if (DropHP == 0.0f) {  // If no match than terurn
-            return res;
-        }
-
-        const float curr_hp = a_actor->AsActorValueOwner()->GetActorValue(RE::ActorValue::kHealth);
-        const float max_hp = a_actor->AsActorValueOwner()->GetBaseActorValue(RE::ActorValue::kHealth);
-        if (max_hp != 0.0) {
-            if ((curr_hp / max_hp) * 100.0f <= DropHP) {
-                RE::TESForm* Left = a_actor->GetEquippedObject(true);
-                RE::TESForm* Right = a_actor->GetEquippedObject(false);
-                if (Left == Right) {
-                    logger::trace("{} dropping {}", a_actor->GetName(), Left->GetName());
-                    RE::TESBoundObject* bound = Left->As<RE::TESBoundObject>();
-                    a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
-                    return true;
-                }
-                if (Right) {
-                    logger::trace("{} dropping {}", a_actor->GetName(), Right->GetName());
-                    RE::TESBoundObject* bound = Right->As<RE::TESBoundObject>();
-                    a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
-                    res = true;
-                }
-                if (Left) {
-                    logger::trace("{} dropping {}", a_actor->GetName(), Left->GetName());
-                    RE::TESBoundObject* bound = Left->As<RE::TESBoundObject>();
-                    a_actor->RemoveItem(bound, 1, RE::ITEM_REMOVE_REASON::kDropping, nullptr, nullptr);
-                    res = true;
-                }
+        if (a_object->Is(RE::FormType::Armor)) {
+            if (const auto equip_slot = a_object->As<RE::TESObjectARMO>()->GetEquipSlot();
+                equip_slot && equip_slot->GetFormID() == Utils::EquipSlots::Shield) {
+                res = true;
             }
+        }
+        if (a_object->Is(RE::FormType::Light)) {
+            res = true;
         }
         return res;
     }
@@ -417,45 +352,14 @@ namespace Utils {
         if (kwdForm && unequip_keyword_left) {
             if (kwdForm->HasKeyword(unequip_keyword_left)) {
                 kwdForm->RemoveKeyword(unequip_keyword_left);
-                AddDrawingInfo(kwdForm, true);
             }
         }
         if (kwdForm && unequip_keyword_right) {
             if (kwdForm->HasKeyword(unequip_keyword_right)) {
                 kwdForm->RemoveKeyword(unequip_keyword_right);
-                AddDrawingInfo(kwdForm, false);
             }
         }
         RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
     }
 
-    void AddDrawingInfo(RE::BGSKeywordForm* kwdForm, bool left) {
-        if (left) {
-            if (kwdForm && equip_keyword_left) {
-                if (!kwdForm->HasKeyword(equip_keyword_left)) {
-                    kwdForm->AddKeyword(equip_keyword_left);
-                }
-            }
-        } else {
-            if (kwdForm && equip_keyword_right) {
-                if (!kwdForm->HasKeyword(equip_keyword_right)) {
-                    kwdForm->AddKeyword(equip_keyword_right);
-                }
-            }
-        }
-    }
-
-    void RemoveDrawingInfo(RE::BGSKeywordForm* kwdForm) {
-        if (kwdForm && equip_keyword_left) {
-            if (kwdForm->HasKeyword(equip_keyword_left)) {
-                kwdForm->RemoveKeyword(equip_keyword_left);
-            }
-        }
-        if (kwdForm && equip_keyword_right) {
-            if (kwdForm->HasKeyword(equip_keyword_right)) {
-                kwdForm->RemoveKeyword(equip_keyword_right);
-            }
-        }
-    }
-
-} // Utils
+}  // Utils

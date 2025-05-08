@@ -1,4 +1,5 @@
 set(sources ${sources}
+	src/Animation.cpp
 	src/Events.cpp
 	src/Hooks.cpp
 	src/Utils.cpp

@@ -13,6 +13,10 @@ namespace MCP {
         SKSEMenuFramework::SetSection("Immersive Weapon Switch");
         SKSEMenuFramework::AddSectionItem("Settings", RenderSettings);
 
+#ifndef NDEBUG
+    SKSEMenuFramework::AddSectionItem("Log", RenderLog);
+#endif
+
         logger::info("SKSE Menu Framework registered.");
     }
 
@@ -27,21 +31,61 @@ namespace MCP {
         ImGui::Checkbox("Mod Active", &Settings::Mod_Active);
         ImGui::Checkbox("NPC Active", &Settings::NPC_Switch);
         ImGui::Checkbox("PC Active", &Settings::PC_Switch);
+    }
 
-        /*
-        ImGui::Text("Player Drop Weapon options");
-        ImGui::Checkbox("Hold 'R' To Drop", &Settings::Hold_To_Drop);
-        ImGui::Checkbox("Hold 'R' To Unarmed", &Settings::Hold_To_Unarmed);
-        ImGui::SliderFloat("Held Duration To Drop (sec)", &Settings::Held_Duration, 0, 10, "%.3f");
-        ImGui::Checkbox("PC Drop Weapons On Change", &Settings::PC_Drop_Weapons);
-        ImGui::SliderFloat("PC Health % to Drop", &Settings::PC_Health_Drop, 0, 100, "%.0f");
+    void __stdcall MCP::RenderLog() {
+        ImGui::Checkbox("Trace", &MCPLog::log_trace);
+        ImGui::SameLine();
+        ImGui::Checkbox("Info", &MCPLog::log_info);
+        ImGui::SameLine();
+        ImGui::Checkbox("Warning", &MCPLog::log_warning);
+        ImGui::SameLine();
+        ImGui::Checkbox("Error", &MCPLog::log_error);
 
-        ImGui::Text("NPC Drop Weapon options");
-        ImGui::Checkbox("NPC Drop Weapons On Change", &Settings::NPC_Drop_Weapons);
-        ImGui::SliderFloat("NPC Health % to Drop", &Settings::NPC_Health_Drop, 0, 100, "%.0f");
-        ImGui::Checkbox("Followers Drop Weapons On Change", &Settings::Followers_Drop_Weapons);
-        ImGui::SliderFloat("Followers Health % to Drop", &Settings::Followers_Health_Drop, 0, 100, "%.0f");
-        */
+        // if"Generate Log" button is pressed, read the log file
+        if (ImGui::Button("Generate Log")) {
+            logLines = MCPLog::ReadLogFile();
+        }
+
+        // Display each line in a new ImGui::Text() element
+        for (const auto& line : logLines) {
+            if (line.find("trace") != std::string::npos && !MCPLog::log_trace) continue;
+            if (line.find("info") != std::string::npos && !MCPLog::log_info) continue;
+            if (line.find("warning") != std::string::npos && !MCPLog::log_warning) continue;
+            if (line.find("error") != std::string::npos && !MCPLog::log_error) continue;
+            ImGui::Text(line.c_str());
+        }
+    }
+}
+
+namespace MCPLog {
+    std::filesystem::path GetLogPath() {
+        const auto logsFolder = SKSE::log::log_directory();
+        if (!logsFolder) SKSE::stl::report_and_fail("SKSE log_directory not provided, logs disabled.");
+        auto pluginName = SKSE::PluginDeclaration::GetSingleton()->GetName();
+        auto logFilePath = *logsFolder / std::format("{}.log", pluginName);
+        return logFilePath;
+    }
+
+    std::vector<std::string> ReadLogFile() {
+        std::vector<std::string> logLines;
+
+        // Open the log file
+        std::ifstream file(GetLogPath().c_str());
+        if (!file.is_open()) {
+            // Handle error
+            return logLines;
+        }
+
+        // Read and store each line from the file
+        std::string line;
+        while (std::getline(file, line)) {
+            logLines.push_back(line);
+        }
+
+        file.close();
+
+        return logLines;
     }
 
 }

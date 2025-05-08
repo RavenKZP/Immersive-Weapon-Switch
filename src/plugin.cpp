@@ -1,10 +1,9 @@
 
-#include "Events.h"
+#include "logger.h"
+#include "Utils.h"
 #include "Hooks.h"
-#include "Logger.h"
 #include "MCP.h"
 #include "Settings.h"
-#include "Utils.h"
 
 void OnMessage(SKSE::MessagingInterface::Message* message) {
     if (message->type == SKSE::MessagingInterface::kDataLoaded) {
@@ -14,7 +13,8 @@ void OnMessage(SKSE::MessagingInterface::Message* message) {
     }
     if (message->type == SKSE::MessagingInterface::kNewGame ||
         message->type == SKSE::MessagingInterface::kPreLoadGame) {
-        Utils::ClearQueue();
+
+        Utils::ClearAllEvents();
     }
 }
 

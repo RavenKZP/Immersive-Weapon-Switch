@@ -10,61 +10,40 @@ namespace Helper {
 
 namespace Utils {
 
-    struct EquipEvent {
-        RE::TESBoundObject* object = nullptr;
-        RE::ExtraDataList* extraData = nullptr;
-        std::uint32_t count = 1;
-        const RE::BGSEquipSlot* slot = nullptr;
-        bool queueEquip = true;
-        bool forceEquip = false;
-        bool playSounds = false;
-        bool applyNow = false;
-        bool equip = true;
-
-        // Spells use Actor, SpellItem, BGSEquipSlot
-        RE::SpellItem* spell = nullptr;
-    };
-
-    struct EquipQueueData {
-        std::queue<EquipEvent> queue;
-        RE::TESBoundObject* last_object;
-        float timestamp;
-    };
-
     const enum EquipSlots { Shield = 82408, Right = 81730, Left = 81731, Both = 81733 };
+
+    struct EquipEvent {
+        RE::TESBoundObject* right = nullptr;
+        RE::TESBoundObject* left = nullptr;
+        bool unequip_right = false;
+        bool unequip_left = false;
+    };
 
     void InitGlobals();
 
-    // Queue Related Functions
-    void UpdateQueue(RE::FormID actID, const EquipEvent& equipdata, bool updateLastObj = true);
-    bool IsInQueue(RE::FormID actID);
-    void RemoveFromQueue(RE::FormID actID);
-    void ClearQueue();
-    std::queue<EquipEvent> GetQueue(RE::FormID actID);
-    float GetTimestamp(RE::FormID actID);
-    RE::TESBoundObject* GetLastObject(RE::FormID actID);
-    void UpdateTimestamp(RE::FormID actID);
+    // Equip Event Related Functions
+    void UpdateEventInfo(RE::Actor* actID, RE::TESBoundObject* object, bool left, bool unequip);
+    bool IsAlreadyTracked(RE::Actor* actID);
+    void RemoveEvent(RE::Actor* actID);
+    void RemoveEvent(const RE::Actor* actID);
+    void ClearAllEvents();
+    EquipEvent GetEvent(RE::Actor* actID);
+    EquipEvent GetEvent(const RE::Actor* act);
+    RE::Actor* GetActor(const RE::Actor* act);
+    void ExecuteEvent(const RE::Actor* act);
 
     // Returns true whenever given object is equipable in left, right or both hands
     bool IsInHand(RE::TESBoundObject* a_object);
     // Returns true whenever object don't have unequip animation (e.g. Lights)
     bool IsWhitelistUnequip(RE::TESBoundObject* a_object);
-    // Returns True whenever hand is empty or equiped with scroll/spell
-    bool IsHandFree(RE::FormID slotID, RE::Actor* actor, RE::TESBoundObject* a_object);
     // Returns True whenever given object is two handed weapon
     bool IsTwoHanded(RE::TESBoundObject* a_object);
-    // Returns true if dropped
-    bool DropIfLowHP(RE::Actor* actor);
+    // Returns True whenever given object is only left hand
+    bool IsLeftOnly(RE::TESBoundObject* a_object);
 
-    EquipSlots SetEquipSlot(RE::TESBoundObject* a_object, RE::Actor* a_actor);
-
+    //I4 Icons
     void SetInventoryInfo(RE::BGSKeywordForm* kwdForm, bool left, bool unequip = false);
     void RemoveInventoryInfo(RE::BGSKeywordForm* kwdForm);
-    void AddDrawingInfo(RE::BGSKeywordForm* kwdForm, bool left);
-    void RemoveDrawingInfo(RE::BGSKeywordForm* kwdForm);
-
-    inline RE::TESGlobal* gameHour;
-    inline RE::TESGlobal* timescale;
 
     inline RE::BGSEquipSlot* right_hand_slot;
     inline RE::BGSEquipSlot* left_hand_slot;
@@ -78,10 +57,10 @@ namespace Utils {
     inline RE::BGSKeyword* equip_keyword_left;
     inline RE::BGSKeyword* equip_keyword_right;
 
-    inline std::shared_mutex actor_queue_mutex;
-    inline std::unordered_map<RE::FormID, EquipQueueData> actor_queue;
+    inline std::shared_mutex actor_equip_event_mutex;
+    inline std::unordered_map<RE::Actor*, EquipEvent> actor_equip_event;
 
-    inline RE::TESBoundObject* last_player_object;
+    inline bool player_equip_left = false;
 
 }
 
