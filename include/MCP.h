@@ -21,4 +21,5 @@ namespace MCPLog {
     inline bool log_info = true;
     inline bool log_warning = true;
     inline bool log_error = true;
+    inline char custom[255];
 };

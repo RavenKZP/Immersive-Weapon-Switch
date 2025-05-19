@@ -38,12 +38,16 @@ namespace Utils {
     bool IsWhitelistUnequip(RE::TESBoundObject* a_object);
     // Returns True whenever given object is two handed weapon
     bool IsTwoHanded(RE::TESBoundObject* a_object);
+    bool IsTwoHanded(RE::TESForm* a_object);
     // Returns True whenever given object is only left hand
     bool IsLeftOnly(RE::TESBoundObject* a_object);
 
     //I4 Icons
-    void SetInventoryInfo(RE::BGSKeywordForm* kwdForm, bool left, bool unequip = false);
-    void RemoveInventoryInfo(RE::BGSKeywordForm* kwdForm);
+    template <typename T>
+    void SetInventoryInfo(T* obj, bool left, bool unequip = false);
+
+    template <typename T>
+    void RemoveInventoryInfo(T* obj);
 
     inline RE::BGSEquipSlot* right_hand_slot;
     inline RE::BGSEquipSlot* left_hand_slot;

@@ -13,7 +13,6 @@ void OnMessage(SKSE::MessagingInterface::Message* message) {
     }
     if (message->type == SKSE::MessagingInterface::kNewGame ||
         message->type == SKSE::MessagingInterface::kPreLoadGame) {
-
         Utils::ClearAllEvents();
     }
 }

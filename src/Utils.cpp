@@ -83,15 +83,51 @@ namespace Utils {
     }
 
     void UpdateEventInfo(RE::Actor* act, RE::TESBoundObject* object, bool left, bool unequip) {
-        logger::trace("UpdateEventInfo: {} {}", act->GetName(), object->GetName());
+        logger::debug("UpdateEventInfo: {} {} {} {}", act->GetName(), object->GetName(), left ? "left" : "right",
+                      unequip ? "unequip" : "equip");
+        if (!object || !act) {
+            logger::error("{} is nullptr", act ? "Object" : "Actor");
+            return;
+        }
         std::unique_lock ulock(actor_equip_event_mutex);
+
+        auto actor_curr_right = act->GetEquippedObject(false);
+        auto actor_curr_left = act->GetEquippedObject(true);
+
         if (const auto it = actor_equip_event.find(act);
             it != actor_equip_event.end()) {  // actor already tracked, udpate event
-            logger::trace("actor already tracked, udpate event");
+            logger::debug("{} already tracked", act->GetName());
+
+            RE::TESObjectREFR::Count count = 0;
+
+            if (!object->IsWeapon()) {
+                count = 69; //whatever more than 2 :D
+            } else {
+                RE::TESObjectREFR::InventoryItemMap inv = act->GetInventory();
+                auto it_inv = inv.find(object);
+                if (it_inv != inv.end()) {
+                    count = it_inv->second.first;
+                    logger::debug("{} has {} of the {}.", act->GetName(), count, object->GetName());
+                } else {
+                    logger::error("{} not found in {}'s inventory.", object->GetName(), act->GetName());
+                    return;
+                }
+            }
+
             if (left) {
+                if (act->IsPlayerRef()) {
+                    SetInventoryInfo(actor_curr_left, true, true);
+                }
                 if (!unequip) {  // always update if equip call
+                    if (act->IsPlayerRef()) {
+                        RemoveInventoryInfo(it->second.left);
+                        SetInventoryInfo(object, true);
+                    }
                     it->second.left = object;
                     it->second.unequip_left = unequip;
+                    if (it->second.right == object && count < 2) {
+                        it->second.right = nullptr;
+                    }
                 } else {
                     if (!it->second.left) {  // only update unequip if empty
                         it->second.left = object;
@@ -99,36 +135,61 @@ namespace Utils {
                     }
                 }
             } else {
+                if (act->IsPlayerRef()) {
+                    SetInventoryInfo(actor_curr_right, false, true);
+                }
                 if (!unequip) {  // always update if equip call
+                    if (act->IsPlayerRef()) {
+                        RemoveInventoryInfo(it->second.right);
+                        SetInventoryInfo(object, false);
+                    }
                     it->second.right = object;
                     it->second.unequip_right = unequip;
                     if (IsTwoHanded(object)) {
+                        if (act->IsPlayerRef()) {
+                            SetInventoryInfo(actor_curr_left, true, true);
+                        }
                         it->second.left = nullptr;
-                        it->second.unequip_left = true;
+                    }
+                    if (it->second.left == object && count < 2) {
+                        it->second.left = nullptr;
                     }
                 } else {
-                    if (!it->second.left) {  // only update unequip if empty
+                    if (!it->second.right) {  // only update unequip if empty
                         it->second.right = object;
                         it->second.unequip_right = unequip;
                     }
                 }
             }
-            logger::trace("Event state:");
-            logger::trace("Right: {}", it->second.right ? it->second.right->GetName() : "nullptr");
-            logger::trace("Left: {}", it->second.left ? it->second.left->GetName() : "nullptr");
+            logger::debug("Right {}: {}", it->second.unequip_right ? "unequip" : "equip",
+                          it->second.right ? it->second.right->GetName() : "nullptr");
+            logger::debug("Left {}: {}", it->second.unequip_left ? "unequip" : "equip",
+                          it->second.left ? it->second.left->GetName() : "nullptr");
         } else {  // actor not tracked
-            logger::trace("actor not tracked");
+            logger::debug("{} not tracked", act->GetName());
             EquipEvent temp_event;
             if (left) {
+                if (act->IsPlayerRef()) {
+                    SetInventoryInfo(actor_curr_left, true, true);
+                    SetInventoryInfo(object, true, unequip);
+                }
                 temp_event.left = object;
                 temp_event.unequip_left = unequip;
             } else {
+                if (act->IsPlayerRef()) {
+                    SetInventoryInfo(actor_curr_right, false, true);
+                    SetInventoryInfo(object, false, unequip);
+                    if (IsTwoHanded(object)) {
+                        SetInventoryInfo(actor_curr_left, true, true);
+                    }
+                }
                 temp_event.right = object;
                 temp_event.unequip_right = unequip;
             }
-            logger::trace("Event state:");
-            logger::trace("Right: {}", temp_event.right ? temp_event.right->GetName() : "nullptr");
-            logger::trace("Left: {}", temp_event.left ? temp_event.left->GetName() : "nullptr");
+            logger::debug("Right {}: {}", temp_event.unequip_right ? "unequip" : "equip",
+                          temp_event.right ? temp_event.right->GetName() : "nullptr");
+            logger::debug("Left {}: {}", temp_event.unequip_left ? "unequip" : "equip",
+                          temp_event.left ? temp_event.left->GetName() : "nullptr");
             actor_equip_event.insert({act, temp_event});
         }
     }
@@ -186,37 +247,59 @@ namespace Utils {
         RE::Actor* actor = GetActor(const_act);
         EquipEvent eqEve = GetEvent(const_act);
 
+        Utils::RemoveEvent(actor);
+        
+        if (actor->IsPlayerRef()) {
+            auto actor_curr_right = actor->GetEquippedObject(false);
+            auto actor_curr_left = actor->GetEquippedObject(true);
+
+                RemoveInventoryInfo(actor_curr_right);
+            
+                RemoveInventoryInfo(actor_curr_left);
+            
+        }
+
         actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kSheathed;
 
         auto EqManager = RE::ActorEquipManager::GetSingleton();
         if (eqEve.right) {
-            logger::trace("Equiping right: {} {}", actor->GetName(), eqEve.right->GetName());
+            if (actor->IsPlayerRef()) {
+                RemoveInventoryInfo(eqEve.right);
+            }
+            logger::debug("{}Equiping right: {} {}", eqEve.unequip_right ? "" : "Un", actor->GetName(),
+                          eqEve.right->GetName());
             if (eqEve.right->As<RE::SpellItem>()) {
                 EqManager->EquipSpell(actor, eqEve.right->As<RE::SpellItem>(), Utils::right_hand_slot);
             } else {
                 if (eqEve.unequip_right) {
-                    EqManager->UnequipObject(actor, eqEve.right, nullptr, 1, Utils::right_hand_slot, false);
+                    EqManager->UnequipObject(actor, eqEve.right, nullptr, 1, nullptr, false, false, false, true);
                 } else {
-                    EqManager->EquipObject(actor, eqEve.right, nullptr, 1, Utils::right_hand_slot, false);
+                    EqManager->EquipObject(actor, eqEve.right, nullptr, 1, nullptr, false, false, false, true);
                 }
             }
         }
         if (eqEve.left) {
-            logger::trace("Equiping left: {}", actor->GetName(), eqEve.left->GetName());
+            if (actor->IsPlayerRef()) {
+                RemoveInventoryInfo(eqEve.left);
+            }
+            logger::debug("{}Equiping left: {}", eqEve.unequip_left ? "" : "Un", actor->GetName(),
+                          eqEve.left->GetName());
             if (eqEve.left->As<RE::SpellItem>()) {
                 EqManager->EquipSpell(actor, eqEve.left->As<RE::SpellItem>(), Utils::left_hand_slot);
             } else {
                 if (IsLeftOnly(eqEve.left)) {
                     if (eqEve.unequip_left) {
-                        EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, Utils::right_hand_slot, false);
+                        EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, true);
                     } else {
-                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, Utils::right_hand_slot, false);
+                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, true);
                     }
                 } else {
                     if (eqEve.unequip_left) {
-                        EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, Utils::left_hand_slot, false);
+                        EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, Utils::left_hand_slot, false, false,
+                                                 false, true);
                     } else {
-                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, Utils::left_hand_slot, false);
+                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, Utils::left_hand_slot, false, false,
+                                               false, true);
                     }
                 }
             }
@@ -226,8 +309,6 @@ namespace Utils {
         // No idea why this order matter, but it does
         actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToDraw;
         actor->DrawWeaponMagicHands(true);
-
-        Utils::RemoveEvent(actor);
     }
 
     bool IsInHand(RE::TESBoundObject* a_object) {
@@ -261,13 +342,32 @@ namespace Utils {
             a_object->Is(RE::FormType::Spell)) {
             res = true;
         }
+        if (a_object->IsWeapon() && a_object->As<RE::TESObjectWEAP>()->IsBound()) {
+            res = true;
+        }
+        if (a_object->Is(RE::FormType::Armor)) {
+            res = true;
+        }
         return res;
+    }
+
+    bool IsTwoHanded(RE::TESForm* a_object) {
+        if (a_object) {
+            if ((a_object->IsWeapon()) &&
+                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) || (a_object->As<RE::TESObjectWEAP>()->IsCrossbow()) ||
+                 (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedAxe()) ||
+                 (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedSword()))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     bool IsTwoHanded(RE::TESBoundObject* a_object) {
         if (a_object) {
             if ((a_object->IsWeapon()) &&
-                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) || (a_object->As<RE::TESObjectWEAP>()->IsCrossbow()) ||
+                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) || 
+                 (a_object->As<RE::TESObjectWEAP>()->IsCrossbow()) ||
                  (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedAxe()) ||
                  (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedSword()))) {
                 return true;
@@ -287,14 +387,20 @@ namespace Utils {
         if (a_object->Is(RE::FormType::Light)) {
             res = true;
         }
+        if (a_object->IsWeapon()) {
+            if (a_object->As<RE::TESObjectWEAP>()->GetEquipSlot() == Utils::left_hand_slot) {
+                res = true;
+            }
+        }
         return res;
     }
 
-    void SetInventoryInfo(RE::BGSKeywordForm* kwdForm, bool left, bool unequip) {
-        static RE::BGSKeywordForm* previous_left = nullptr;
-        static RE::BGSKeywordForm* previous_right = nullptr;
-        auto player = RE::PlayerCharacter::GetSingleton();
-
+    template <typename T>
+    void SetInventoryInfo(T* obj, bool left, bool unequip) {
+        if (!obj) {
+            return;
+        }
+        RE::BGSKeywordForm* kwdForm = obj->As<RE::BGSKeywordForm>();
         if (unequip) {
             if (left) {
                 if (kwdForm && unequip_keyword_left) {
@@ -309,36 +415,30 @@ namespace Utils {
                     }
                 }
             }
-            return;
-        }
-
-        if (left && previous_left) {
-            RemoveInventoryInfo(previous_left);
-        }
-        if (!left && previous_right) {
-            RemoveInventoryInfo(previous_right);
-        }
-
-        if (left) {
-            previous_left = kwdForm;
-            if (kwdForm && switch_keyword_left) {
-                if (!kwdForm->HasKeyword(switch_keyword_left)) {
-                    kwdForm->AddKeyword(switch_keyword_left);
-                }
-            }
         } else {
-            previous_right = kwdForm;
-            if (kwdForm && switch_keyword_right) {
-                if (!kwdForm->HasKeyword(switch_keyword_right)) {
-                    kwdForm->AddKeyword(switch_keyword_right);
+            if (left) {
+                if (kwdForm && switch_keyword_left) {
+                    if (!kwdForm->HasKeyword(switch_keyword_left)) {
+                        kwdForm->AddKeyword(switch_keyword_left);
+                    }
+                }
+            } else {
+                if (kwdForm && switch_keyword_right) {
+                    if (!kwdForm->HasKeyword(switch_keyword_right)) {
+                        kwdForm->AddKeyword(switch_keyword_right);
+                    }
                 }
             }
         }
-        RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
+        RE::SendUIMessage::SendInventoryUpdateMessage(RE::PlayerCharacter::GetSingleton(), nullptr);
     }
 
-    void RemoveInventoryInfo(RE::BGSKeywordForm* kwdForm) {
-        auto player = RE::PlayerCharacter::GetSingleton();
+    template <typename T>
+    void RemoveInventoryInfo(T* obj) {
+        if (!obj) {
+            return;
+        }
+        RE::BGSKeywordForm* kwdForm = obj->As<RE::BGSKeywordForm>();
         if (kwdForm && switch_keyword_left) {
             if (kwdForm->HasKeyword(switch_keyword_left)) {
                 kwdForm->RemoveKeyword(switch_keyword_left);
@@ -359,7 +459,7 @@ namespace Utils {
                 kwdForm->RemoveKeyword(unequip_keyword_right);
             }
         }
-        RE::SendUIMessage::SendInventoryUpdateMessage(player, nullptr);
+        RE::SendUIMessage::SendInventoryUpdateMessage(RE::PlayerCharacter::GetSingleton(), nullptr);
     }
 
 }  // Utils

@@ -41,6 +41,7 @@ namespace MCP {
         ImGui::Checkbox("Warning", &MCPLog::log_warning);
         ImGui::SameLine();
         ImGui::Checkbox("Error", &MCPLog::log_error);
+        ImGui::InputText("Custom Filter", MCPLog::custom, 255);
 
         // if"Generate Log" button is pressed, read the log file
         if (ImGui::Button("Generate Log")) {
@@ -53,6 +54,7 @@ namespace MCP {
             if (line.find("info") != std::string::npos && !MCPLog::log_info) continue;
             if (line.find("warning") != std::string::npos && !MCPLog::log_warning) continue;
             if (line.find("error") != std::string::npos && !MCPLog::log_error) continue;
+            if (line.find(MCPLog::custom) == std::string::npos && MCPLog::custom != "") continue;
             ImGui::Text(line.c_str());
         }
     }

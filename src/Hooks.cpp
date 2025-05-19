@@ -22,16 +22,19 @@ namespace Hooks {
     }
 
     void EquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        // Commonlib
+        // All Calls
         func = a_trampoline.write_call<5>(REL::RelocationID(37938, 38894).address() + REL::Relocate(0xE5, 0x170), thunk);
     }
     void EquipSpellHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-
+        // Menus
+        func = a_trampoline.write_call<5>(REL::RelocationID(37952, 38908).address() + REL::Relocate(0xd7, 0xd7), thunk);
+        // Hotkey
+        func = a_trampoline.write_call<5>(REL::RelocationID(37950, 38906).address() + REL::Relocate(0xc5, 0xca), thunk); 
         // Commonlib
         func = a_trampoline.write_call<5>(REL::RelocationID(37939, 38895).address() + REL::Relocate(0x47, 0x47), thunk);
     }
     void UnEquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
-        // Commonlib
+        // All Calls
         func = a_trampoline.write_call<5>(REL::RelocationID(37945, 38901).address() + REL::Relocate(0x138, 0x1b9), thunk);
     }
 
@@ -55,11 +58,15 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
-        logger::trace("Equip Hook: {} {}", a_actor->GetName(), a_object->GetName());
+        logger::debug("Equip Hook: {} {}", a_actor->GetName(), a_object->GetName());
 
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {
-            if (actorState->GetWeaponState() != RE::WEAPON_STATE::kSheathed) {
-                logger::trace("Equip Hook: Not kSheathed");
+            if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
+                logger::debug("Equip Hook: Not kSheathed actual {}",
+                              Helper::WeaponStateToString(actorState->GetWeaponState()));
+
+                auto actor_right_hand = a_actor->GetEquippedObject(false);
+                auto actor_left_hand = a_actor->GetEquippedObject(true);
 
                 bool left = false;
                 if (a_actor->IsPlayerRef()) {
@@ -68,22 +75,48 @@ namespace Hooks {
                         Utils::player_equip_left = false;
                     }
                 } else { // NPC
-                    //If right hand is weapon and left is empty, equip to left
+                    if (actor_right_hand && !actor_left_hand) {
+                        left = true;
+                    }
+                    if (Utils::IsAlreadyTracked(a_actor)) {
+                        auto EQEvent = Utils::GetEvent(a_actor);
+                        if (EQEvent.right && !EQEvent.left && a_object != EQEvent.right) {
+                            left = true;
+                        }
+                    }
                 }
 
                 if (Utils::IsLeftOnly(a_object)) {
                     left = true;
                 }
 
-                auto actor_right_hand = a_actor->GetEquippedObject(false);
-                auto actor_left_hand = a_actor->GetEquippedObject(true);
-
                 // if equip to empty hand
-                if (left && !actor_left_hand) {
-                    return func(a_manager, a_actor, a_object, a_unk);
+                bool left_empty = false;
+                bool right_empty = false;
+                if (!actor_left_hand) {
+                    left_empty = true;
+                } else if (actor_left_hand->Is(RE::FormType::Spell) || actor_left_hand->Is(RE::FormType::Light) ||
+                           actor_left_hand->Is(RE::FormType::Scroll)) {
+                    left_empty = true;
                 }
-                if (!left && !actor_right_hand) {
-                    return func(a_manager, a_actor, a_object, a_unk);
+                if (!actor_right_hand) {
+                    right_empty = true;
+                } else if (actor_right_hand->Is(RE::FormType::Spell) || actor_right_hand->Is(RE::FormType::Scroll)) {
+                    right_empty = true;
+                } else if (Utils::IsTwoHanded(actor_right_hand)) {
+                    right_empty = false;
+                    left_empty = false;
+                }
+                if (!Utils::IsTwoHanded(a_object)) {
+                    if (left && left_empty) {
+                        return func(a_manager, a_actor, a_object, a_unk);
+                    } else if (!left && right_empty) {
+                        return func(a_manager, a_actor, a_object, a_unk);
+                    }
+                } else {
+                    if (right_empty && left_empty) {
+                        return func(a_manager, a_actor, a_object, a_unk);
+                    }
                 }
 
                 CreateEventSink(a_actor);
@@ -93,7 +126,6 @@ namespace Hooks {
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                 return;
             }
-
         }
         return func(a_manager, a_actor, a_object, a_unk);
     }
@@ -104,11 +136,56 @@ namespace Hooks {
             return func(a_manager, a_actor, a_spell, a_slot);
         }
 
+        if (a_spell->data.spellType != RE::MagicSystem::SpellType::kSpell) {
+            return func(a_manager, a_actor, a_spell, a_slot);
+        }
+
         // Check mod enabled for actor
         if ((!Settings::PC_Switch && a_actor->IsPlayerRef()) || (!Settings::NPC_Switch && !a_actor->IsPlayerRef())) {
             return func(a_manager, a_actor, a_spell, a_slot);
         }
-        logger::trace("Equip Spell Hook: {} {}", a_actor->GetName(), a_spell->GetName());
+
+        logger::debug("Equip Spell Hook: {} {}", a_actor->GetName(), a_spell->GetName());
+
+
+        if (const RE::ActorState* actorState = a_actor->AsActorState()) {
+            if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
+                logger::debug("Equip Spell Hook: Not kSheathed actual {}",
+                              Helper::WeaponStateToString(actorState->GetWeaponState()));
+
+                auto actor_right_hand = a_actor->GetEquippedObject(false);
+                auto actor_left_hand = a_actor->GetEquippedObject(true);
+
+                // if equip to empty hand
+                bool left_empty = false;
+                bool right_empty = false;
+                if (!actor_left_hand) {
+                    left_empty = true;
+                } else if (actor_left_hand->Is(RE::FormType::Spell) || actor_left_hand->Is(RE::FormType::Light) ||
+                           actor_left_hand->Is(RE::FormType::Scroll)) {
+                    left_empty = true;
+                }
+                if (!actor_right_hand) {
+                    right_empty = true;
+                } else if (actor_right_hand->Is(RE::FormType::Spell) || actor_right_hand->Is(RE::FormType::Scroll)) {
+                    right_empty = true;
+                }
+
+                if (*a_slot == Utils::left_hand_slot && left_empty) {
+                    return func(a_manager, a_actor, a_spell, a_slot);
+                }
+                if ((*a_slot == Utils::right_hand_slot || !*a_slot) && right_empty) {
+                    return func(a_manager, a_actor, a_spell, a_slot);
+                }
+
+                CreateEventSink(a_actor);
+                Utils::UpdateEventInfo(a_actor, a_spell, *a_slot == Utils::left_hand_slot, false);
+
+                a_actor->DrawWeaponMagicHands(false);
+                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                return;
+            }
+        }
 
         return func(a_manager, a_actor, a_spell, a_slot);
     }
@@ -124,6 +201,10 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
+        if (!Utils::IsInHand(a_object)) {
+            return func(a_manager, a_actor, a_object, a_unk);
+        }
+
         if (a_object->IsWeapon()) {
             if ((a_object == Utils::unarmed_weapon) || (a_object->As<RE::TESObjectWEAP>()->IsBound())) {
                 return func(a_manager, a_actor, a_object, a_unk);
@@ -134,7 +215,34 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
-        logger::trace("UnEquip Hook: {} {}", a_actor->GetName(), a_object->GetName());
+        logger::debug("UnEquip Hook: {} {}", a_actor->GetName(), a_object->GetName());
+
+        if (const RE::ActorState* actorState = a_actor->AsActorState()) {
+            if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
+                logger::debug("Unequip Hook: Not kSheathed actual {}",
+                              Helper::WeaponStateToString(actorState->GetWeaponState()));
+
+                bool left = false;
+                if (a_actor->IsPlayerRef()) {
+                    if (Utils::player_equip_left == true) {
+                        left = true;
+                        Utils::player_equip_left = false;
+                    }
+                } else {  // NPC
+                }
+
+                if (Utils::IsLeftOnly(a_object)) {
+                    left = true;
+                }
+
+                CreateEventSink(a_actor);
+                Utils::UpdateEventInfo(a_actor, a_object, left, true);
+
+                a_actor->DrawWeaponMagicHands(false);
+                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                return;
+            }
+        }
 
         return func(a_manager, a_actor, a_object, a_unk);
     }
