@@ -18,6 +18,8 @@ namespace Hooks {
         UnEquipObjectHook::InstallHook(trampoline);
         InputHook::InstallHook(trampoline);
 
+        RemoveItemHook::InstallHook();
+
         logger::info("Hooks Installed");
     }
 
@@ -25,6 +27,7 @@ namespace Hooks {
         // All Calls
         func = a_trampoline.write_call<5>(REL::RelocationID(37938, 38894).address() + REL::Relocate(0xE5, 0x170), thunk);
     }
+
     void EquipSpellHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // Menus
         func = a_trampoline.write_call<5>(REL::RelocationID(37952, 38908).address() + REL::Relocate(0xd7, 0xd7), thunk);
@@ -33,9 +36,15 @@ namespace Hooks {
         // Commonlib
         func = a_trampoline.write_call<5>(REL::RelocationID(37939, 38895).address() + REL::Relocate(0x47, 0x47), thunk);
     }
+
     void UnEquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // All Calls
         func = a_trampoline.write_call<5>(REL::RelocationID(37945, 38901).address() + REL::Relocate(0x138, 0x1b9), thunk);
+    }
+
+    void RemoveItemHook::InstallHook() {
+        REL::Relocation<std::uintptr_t> vtbl{RE::VTABLE_PlayerCharacter[0]};
+        func = reinterpret_cast<Fn*>(vtbl.write_vfunc(0x56, reinterpret_cast<std::uintptr_t>(thunk)));
     }
 
     void InputHook::InstallHook(SKSE::Trampoline& a_trampoline) {
@@ -51,6 +60,10 @@ namespace Hooks {
 
         // Check mod enabled for actor
         if ((!Settings::PC_Switch && a_actor->IsPlayerRef()) || (!Settings::NPC_Switch && !a_actor->IsPlayerRef())) {
+            return func(a_manager, a_actor, a_object, a_unk);
+        }
+
+        if (a_actor->IsDead()) { // :(
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
@@ -145,6 +158,10 @@ namespace Hooks {
             return func(a_manager, a_actor, a_spell, a_slot);
         }
 
+        if (a_actor->IsDead()) {  // :(
+            return func(a_manager, a_actor, a_spell, a_slot);
+        }
+
         logger::debug("Equip Spell Hook: {} {}", a_actor->GetName(), a_spell->GetName());
 
 
@@ -201,6 +218,14 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
+        if (a_actor->IsDead()) {  // :(
+            return func(a_manager, a_actor, a_object, a_unk);
+        }
+
+        if (RemoveItemHook::remove_obj == a_object && RemoveItemHook::remove_act == a_actor) {
+            return func(a_manager, a_actor, a_object, a_unk);
+        }
+
         if (!Utils::IsInHand(a_object)) {
             return func(a_manager, a_actor, a_object, a_unk);
         }
@@ -245,6 +270,20 @@ namespace Hooks {
         }
 
         return func(a_manager, a_actor, a_object, a_unk);
+    }
+
+    RE::ObjectRefHandle* RemoveItemHook::thunk(RE::TESObjectREFR* a_this, RE::ObjectRefHandle& a_hidden_return_argument,
+                                               RE::TESBoundObject* a_item, std::int32_t a_count,
+                                               RE::ITEM_REMOVE_REASON a_reason, RE::ExtraDataList* a_extra_list,
+                                               RE::TESObjectREFR* a_move_to_ref, const RE::NiPoint3* a_drop_loc,
+                                               const RE::NiPoint3* a_rotate) {
+        logger::debug("{} is removing item {}", a_this->GetName(), a_item->GetName());
+
+        remove_act = a_this;
+        remove_obj = a_item;
+
+        return func(a_this, a_hidden_return_argument, a_item, a_count, a_reason, a_extra_list, a_move_to_ref,
+                    a_drop_loc, a_rotate);
     }
 
     void InputHook::thunk(RE::BSTEventSource<RE::InputEvent*>* a_dispatcher, RE::InputEvent* const* a_event) {

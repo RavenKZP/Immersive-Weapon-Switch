@@ -266,15 +266,15 @@ namespace Utils {
             if (actor->IsPlayerRef()) {
                 RemoveInventoryInfo(eqEve.right);
             }
-            logger::debug("{}Equiping right: {} {}", eqEve.unequip_right ? "" : "Un", actor->GetName(),
+            logger::debug("{}Equiping right: {} {}", eqEve.unequip_right ? "Un" : "", actor->GetName(),
                           eqEve.right->GetName());
             if (eqEve.right->As<RE::SpellItem>()) {
                 EqManager->EquipSpell(actor, eqEve.right->As<RE::SpellItem>(), Utils::right_hand_slot);
             } else {
                 if (eqEve.unequip_right) {
-                    EqManager->UnequipObject(actor, eqEve.right, nullptr, 1, nullptr, false, false, false, true);
+                    EqManager->UnequipObject(actor, eqEve.right, nullptr, 1, nullptr, false, false, false, false);
                 } else {
-                    EqManager->EquipObject(actor, eqEve.right, nullptr, 1, nullptr, false, false, false, true);
+                    EqManager->EquipObject(actor, eqEve.right, nullptr, 1, nullptr, false, false, false, false);
                 }
             }
         }
@@ -282,24 +282,24 @@ namespace Utils {
             if (actor->IsPlayerRef()) {
                 RemoveInventoryInfo(eqEve.left);
             }
-            logger::debug("{}Equiping left: {}", eqEve.unequip_left ? "" : "Un", actor->GetName(),
+            logger::debug("{}Equiping left: {}", eqEve.unequip_left ? "Un" : "", actor->GetName(),
                           eqEve.left->GetName());
             if (eqEve.left->As<RE::SpellItem>()) {
                 EqManager->EquipSpell(actor, eqEve.left->As<RE::SpellItem>(), Utils::left_hand_slot);
             } else {
                 if (IsLeftOnly(eqEve.left)) {
                     if (eqEve.unequip_left) {
-                        EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, true);
+                        EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, false);
                     } else {
-                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, true);
+                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, false);
                     }
                 } else {
                     if (eqEve.unequip_left) {
                         EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, Utils::left_hand_slot, false, false,
-                                                 false, true);
+                                                 false, false);
                     } else {
                         EqManager->EquipObject(actor, eqEve.left, nullptr, 1, Utils::left_hand_slot, false, false,
-                                               false, true);
+                                               false, false);
                     }
                 }
             }
