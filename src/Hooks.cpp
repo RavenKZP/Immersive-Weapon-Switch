@@ -18,7 +18,7 @@ namespace Hooks {
         UnEquipObjectHook::InstallHook(trampoline);
         InputHook::InstallHook(trampoline);
 
-        RemoveItemHook::InstallHook();
+        RemoveItemHook<RE::PlayerCharacter>::InstallHook();
 
         logger::info("Hooks Installed");
     }
@@ -42,13 +42,15 @@ namespace Hooks {
         func = a_trampoline.write_call<5>(REL::RelocationID(37945, 38901).address() + REL::Relocate(0x138, 0x1b9), thunk);
     }
 
-    void RemoveItemHook::InstallHook() {
-        REL::Relocation<std::uintptr_t> vtbl{RE::VTABLE_PlayerCharacter[0]};
-        func = reinterpret_cast<Fn*>(vtbl.write_vfunc(0x56, reinterpret_cast<std::uintptr_t>(thunk)));
-    }
-
     void InputHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         func = a_trampoline.write_call<5>(REL::RelocationID(67315, 68617).address() + REL::Relocate(0x7B, 0x7B), thunk);
+    }
+
+    template <class T>
+    void RemoveItemHook<T>::InstallHook() {
+        REL::Relocation<std::uintptr_t> vTable(T::VTABLE[0]);
+        func = vTable.write_vfunc(0x56, &RemoveItemHook::thunk);
+        logger::debug("Installed RemoveItemHook<{}>", typeid(T).name());
     }
 
     void EquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
@@ -222,7 +224,7 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
-        if (RemoveItemHook::remove_obj == a_object && RemoveItemHook::remove_act == a_actor) {
+        if (Utils::remove_obj == a_object && Utils::remove_act == a_actor) {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
@@ -272,15 +274,16 @@ namespace Hooks {
         return func(a_manager, a_actor, a_object, a_unk);
     }
 
-    RE::ObjectRefHandle* RemoveItemHook::thunk(RE::TESObjectREFR* a_this, RE::ObjectRefHandle& a_hidden_return_argument,
-                                               RE::TESBoundObject* a_item, std::int32_t a_count,
-                                               RE::ITEM_REMOVE_REASON a_reason, RE::ExtraDataList* a_extra_list,
-                                               RE::TESObjectREFR* a_move_to_ref, const RE::NiPoint3* a_drop_loc,
-                                               const RE::NiPoint3* a_rotate) {
-        logger::debug("{} is removing item {}", a_this->GetName(), a_item->GetName());
+    template <class T>
+    RE::ObjectRefHandle* RemoveItemHook<T>::thunk(T* a_this, RE::ObjectRefHandle& a_hidden_return_argument,
+                                             RE::TESBoundObject* a_item,
+                               std::int32_t a_count, RE::ITEM_REMOVE_REASON a_reason, RE::ExtraDataList* a_extra_list,
+                               RE::TESObjectREFR* a_move_to_ref, const RE::NiPoint3* a_drop_loc,
+                               const RE::NiPoint3* a_rotate) {
+        logger::debug("[RemoveItemHook<{}>] {} removing {}", typeid(T).name(), a_this->GetName(), a_item->GetName());
 
-        remove_act = a_this;
-        remove_obj = a_item;
+        Utils::remove_act = a_this;
+        Utils::remove_obj = a_item;
 
         return func(a_this, a_hidden_return_argument, a_item, a_count, a_reason, a_extra_list, a_move_to_ref,
                     a_drop_loc, a_rotate);

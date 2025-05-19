@@ -66,5 +66,8 @@ namespace Utils {
 
     inline bool player_equip_left = false;
 
+    inline RE::TESObjectREFR* remove_act;
+    inline RE::TESBoundObject* remove_obj;
+
 }
 
