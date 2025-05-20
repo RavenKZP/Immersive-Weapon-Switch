@@ -73,11 +73,11 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
-        logger::debug("Equip Hook: {} {}", a_actor->GetName(), a_object->GetName());
+        logger::debug("[Equip Hook]:[{} - {}] {}", a_actor->GetName(), a_actor->GetFormID(), a_object->GetName());
 
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {
             if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
-                logger::debug("Equip Hook: Not kSheathed actual {}",
+                logger::debug("[Equip Hook]:[{} - {}] Weapon State {}", a_actor->GetName(), a_actor->GetFormID(),
                               Helper::WeaponStateToString(actorState->GetWeaponState()));
 
                 auto actor_right_hand = a_actor->GetEquippedObject(false);
@@ -160,16 +160,13 @@ namespace Hooks {
             return func(a_manager, a_actor, a_spell, a_slot);
         }
 
-        if (a_actor->IsDead()) {  // :(
-            return func(a_manager, a_actor, a_spell, a_slot);
-        }
-
-        logger::debug("Equip Spell Hook: {} {}", a_actor->GetName(), a_spell->GetName());
+        logger::debug("[Equip Spell Hook]:[{} - {}] {} {}", a_actor->GetName(), a_actor->GetFormID(),
+                      a_spell->GetName(), *a_slot == Utils::left_hand_slot ? "left" : "right");
 
 
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {
             if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
-                logger::debug("Equip Spell Hook: Not kSheathed actual {}",
+                logger::debug("[Equip Spell Hook]:[{} - {}] Weapon State {}", a_actor->GetName(), a_actor->GetFormID(),
                               Helper::WeaponStateToString(actorState->GetWeaponState()));
 
                 auto actor_right_hand = a_actor->GetEquippedObject(false);
@@ -242,11 +239,11 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
-        logger::debug("UnEquip Hook: {} {}", a_actor->GetName(), a_object->GetName());
+        logger::debug("[UnEquip Hook]:[{} - {}] ", a_actor->GetName(), a_actor->GetFormID(), a_object->GetName());
 
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {
             if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
-                logger::debug("Unequip Hook: Not kSheathed actual {}",
+                logger::debug("[Equip Hook]:[{} - {}] Weapon State {}", a_actor->GetName(), a_actor->GetFormID(),
                               Helper::WeaponStateToString(actorState->GetWeaponState()));
 
                 bool left = false;
@@ -280,7 +277,8 @@ namespace Hooks {
                                std::int32_t a_count, RE::ITEM_REMOVE_REASON a_reason, RE::ExtraDataList* a_extra_list,
                                RE::TESObjectREFR* a_move_to_ref, const RE::NiPoint3* a_drop_loc,
                                const RE::NiPoint3* a_rotate) {
-        logger::debug("[RemoveItemHook<{}>] {} removing {}", typeid(T).name(), a_this->GetName(), a_item->GetName());
+        logger::debug("[RemoveItemHook<{}>] [{} - {}] removing {}", typeid(T).name(), a_this->GetName(),
+                      a_this->GetFormID(), a_item->GetName());
 
         Utils::remove_act = a_this;
         Utils::remove_obj = a_item;
@@ -319,9 +317,12 @@ namespace Hooks {
                 if (button_event->IsPressed()) {
                     Utils::player_equip_left = true;
                 }
-            }
-            if (button_event->userEvent == RE::UserEvents::GetSingleton()->rightEquip ||
-                button_event->userEvent == RE::UserEvents::GetSingleton()->rightAttack) {
+            } else if (button_event->userEvent == RE::UserEvents::GetSingleton()->rightEquip ||
+                       button_event->userEvent == RE::UserEvents::GetSingleton()->rightAttack) {
+                if (button_event->IsPressed()) {
+                    Utils::player_equip_left = false;
+                }
+            } else {
                 if (button_event->IsPressed()) {
                     Utils::player_equip_left = false;
                 }

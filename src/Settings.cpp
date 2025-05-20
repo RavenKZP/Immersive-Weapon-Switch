@@ -8,7 +8,7 @@ namespace Settings {
         ini.SetUnicode();
 
         if (!std::filesystem::exists(setting_path)) {
-            logger::info("No {} file found, creating new with default values", setting_path);
+            logger::warn("[LoadSettings] No {} file found, creating new with default values", setting_path);
             SaveSettings();
         } else {
             ini.LoadFile(setting_path);
@@ -59,7 +59,7 @@ namespace Settings {
 
         ini.SaveFile(setting_path);
 
-        logger::info("Settings Saved");
+        logger::info("[SaveSettings] Settings Saved");
     }
 
     void Settings::ResetSettings() {
@@ -79,7 +79,7 @@ namespace Settings {
         NPC_Switch = true;
         PC_Switch = true;
 
-        logger::info("Settings Reseted");
+        logger::info("[ResetSettings] Settings Reseted");
     }
 
 }

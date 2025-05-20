@@ -8,7 +8,7 @@ RE::BSEventNotifyControl AnimationEventSink::ProcessEvent(const RE::BSAnimationG
     if (a_event->tag == "WeaponSheathe") {
         const RE::Actor* actor = a_event->holder->As<RE::Actor>();
 
-        logger::debug("WeaponSheathe Event: {}", actor->GetName());
+        logger::debug("[AnimationEventSink]:[{} - {}] WeaponSheathe Event", actor->GetName(), actor->GetFormID());
 
         Utils::ExecuteEvent(actor);
         RemoveEventSink(actor, this);

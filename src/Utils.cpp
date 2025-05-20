@@ -47,7 +47,7 @@ namespace Utils {
         if (form) {
             return form->As<RE::BGSKeyword>();
         }
-        logger::warn("No keyword {} found, creating it", kwd);
+        logger::warn("[InitGlobals]: No keyword {} found, creating it", kwd);
         const auto factory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::BGSKeyword>();
         RE::BGSKeyword* createdkeyword = nullptr;
         if (createdkeyword = factory ? factory->Create() : nullptr; createdkeyword) {
@@ -76,17 +76,18 @@ namespace Utils {
         if (unarmed_weapon && right_hand_slot && left_hand_slot && switch_keyword_right && switch_keyword_left &&
             unequip_keyword_left && unequip_keyword_right && equip_keyword_left && equip_keyword_right) {
 
-            logger::info("Global variables initialized");
+            logger::info("[InitGlobals]: Global variables initialized");
         } else {
-            logger::error("Error during Initialization of Global variables");
+            logger::error("[InitGlobals]: Error during Initialization of Global variables");
         }
     }
 
     void UpdateEventInfo(RE::Actor* act, RE::TESBoundObject* object, bool left, bool unequip) {
-        logger::debug("UpdateEventInfo: {} {} {} {}", act->GetName(), object->GetName(), left ? "left" : "right",
+        logger::debug("[UpdateEventInfo]:[{} - {}] {} - {} - {}", act->GetName(), act->GetFormID(), object->GetName(),
+                      left ? "left" : "right",
                       unequip ? "unequip" : "equip");
         if (!object || !act) {
-            logger::error("{} is nullptr", act ? "Object" : "Actor");
+            logger::error("[UpdateEventInfo]: {} is nullptr", act ? "Object" : "Actor");
             return;
         }
         std::unique_lock ulock(actor_equip_event_mutex);
@@ -96,7 +97,7 @@ namespace Utils {
 
         if (const auto it = actor_equip_event.find(act);
             it != actor_equip_event.end()) {  // actor already tracked, udpate event
-            logger::debug("{} already tracked", act->GetName());
+            logger::debug("[UpdateEventInfo]:[{} - {}] already tracked", act->GetName(), act->GetFormID());
 
             RE::TESObjectREFR::Count count = 0;
 
@@ -107,10 +108,21 @@ namespace Utils {
                 auto it_inv = inv.find(object);
                 if (it_inv != inv.end()) {
                     count = it_inv->second.first;
-                    logger::debug("{} has {} of the {}.", act->GetName(), count, object->GetName());
+                    logger::debug("[UpdateEventInfo]:[{} - {}] has {} of the {}.", act->GetName(), act->GetFormID(),
+                                  count, object->GetName());
                 } else {
-                    logger::error("{} not found in {}'s inventory.", object->GetName(), act->GetName());
+                    logger::error("[UpdateEventInfo]:[{} - {}] {} not found in inventory.", act->GetName(),
+                                  act->GetFormID(), object->GetName());
                     return;
+                }
+            }
+
+            if (object->Is(RE::FormType::Spell)) { //Double equip spell = both hands
+                if (object == it->second.left) {
+                    left = false;
+                }
+                if (object == it->second.right) {
+                    left = true;
                 }
             }
 
@@ -161,12 +173,14 @@ namespace Utils {
                     }
                 }
             }
-            logger::debug("Right {}: {}", it->second.unequip_right ? "unequip" : "equip",
+            logger::debug("[UpdateEventInfo]:[{} - {}] Right {}: {}", act->GetName(), act->GetFormID(),
+                          it->second.unequip_right ? "unequip" : "equip",
                           it->second.right ? it->second.right->GetName() : "nullptr");
-            logger::debug("Left {}: {}", it->second.unequip_left ? "unequip" : "equip",
+            logger::debug("[UpdateEventInfo]:[{} - {}] Left {}: {}", act->GetName(), act->GetFormID(),
+                          it->second.unequip_left ? "unequip" : "equip",
                           it->second.left ? it->second.left->GetName() : "nullptr");
         } else {  // actor not tracked
-            logger::debug("{} not tracked", act->GetName());
+            logger::debug("[UpdateEventInfo]:[{} - {}] not tracked", act->GetName(), act->GetFormID());
             EquipEvent temp_event;
             if (left) {
                 if (act->IsPlayerRef()) {
@@ -186,9 +200,11 @@ namespace Utils {
                 temp_event.right = object;
                 temp_event.unequip_right = unequip;
             }
-            logger::debug("Right {}: {}", temp_event.unequip_right ? "unequip" : "equip",
+            logger::debug("[UpdateEventInfo]:[{} - {}] Right {}: {}", act->GetName(), act->GetFormID(),
+                          temp_event.unequip_right ? "unequip" : "equip",
                           temp_event.right ? temp_event.right->GetName() : "nullptr");
-            logger::debug("Left {}: {}", temp_event.unequip_left ? "unequip" : "equip",
+            logger::debug("[UpdateEventInfo]:[{} - {}] Left {}: {}", act->GetName(), act->GetFormID(),
+                          temp_event.unequip_left ? "unequip" : "equip",
                           temp_event.left ? temp_event.left->GetName() : "nullptr");
             actor_equip_event.insert({act, temp_event});
         }
@@ -252,11 +268,8 @@ namespace Utils {
         if (actor->IsPlayerRef()) {
             auto actor_curr_right = actor->GetEquippedObject(false);
             auto actor_curr_left = actor->GetEquippedObject(true);
-
-                RemoveInventoryInfo(actor_curr_right);
-            
-                RemoveInventoryInfo(actor_curr_left);
-            
+            RemoveInventoryInfo(actor_curr_right);
+            RemoveInventoryInfo(actor_curr_left);
         }
 
         actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kSheathed;
@@ -266,7 +279,9 @@ namespace Utils {
             if (actor->IsPlayerRef()) {
                 RemoveInventoryInfo(eqEve.right);
             }
-            logger::debug("{}Equiping right: {} {}", eqEve.unequip_right ? "Un" : "", actor->GetName(),
+            logger::debug("[ExecuteEvent]:[{} - {}] {}Equiping right: {}", actor->GetName(),
+                          actor->GetFormID(),
+                          eqEve.unequip_right ? "Un" : "",
                           eqEve.right->GetName());
             if (eqEve.right->As<RE::SpellItem>()) {
                 EqManager->EquipSpell(actor, eqEve.right->As<RE::SpellItem>(), Utils::right_hand_slot);
@@ -282,8 +297,8 @@ namespace Utils {
             if (actor->IsPlayerRef()) {
                 RemoveInventoryInfo(eqEve.left);
             }
-            logger::debug("{}Equiping left: {}", eqEve.unequip_left ? "Un" : "", actor->GetName(),
-                          eqEve.left->GetName());
+            logger::debug("[ExecuteEvent]:[{} - {}] {}Equiping left: {}", actor->GetName(), actor->GetFormID(),
+                          eqEve.unequip_left ? "Un" : "", eqEve.left->GetName());
             if (eqEve.left->As<RE::SpellItem>()) {
                 EqManager->EquipSpell(actor, eqEve.left->As<RE::SpellItem>(), Utils::left_hand_slot);
             } else {
