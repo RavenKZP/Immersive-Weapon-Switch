@@ -41,6 +41,8 @@ namespace Utils {
     bool IsTwoHanded(RE::TESForm* a_object);
     // Returns True whenever given object is only left hand
     bool IsLeftOnly(RE::TESBoundObject* a_object);
+    // Returns pair for right and left hand containing if hand is empty
+    std::pair<bool, bool> GetIfHandsEmpty(RE::Actor* act);
 
     //I4 Icons
     template <typename T>

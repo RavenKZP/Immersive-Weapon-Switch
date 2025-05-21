@@ -106,30 +106,21 @@ namespace Hooks {
                 }
 
                 // if equip to empty hand
-                bool left_empty = false;
-                bool right_empty = false;
-                if (!actor_left_hand) {
-                    left_empty = true;
-                } else if (actor_left_hand->Is(RE::FormType::Spell) || actor_left_hand->Is(RE::FormType::Light) ||
-                           actor_left_hand->Is(RE::FormType::Scroll)) {
-                    left_empty = true;
-                }
-                if (!actor_right_hand) {
-                    right_empty = true;
-                } else if (actor_right_hand->Is(RE::FormType::Spell) || actor_right_hand->Is(RE::FormType::Scroll)) {
-                    right_empty = true;
-                } else if (Utils::IsTwoHanded(actor_right_hand)) {
-                    right_empty = false;
-                    left_empty = false;
-                }
-                if (!Utils::IsTwoHanded(a_object)) {
+                std::pair<bool, bool> hands_empty = Utils::GetIfHandsEmpty(a_actor);
+                bool left_empty = hands_empty.second;
+                bool right_empty = hands_empty.first;
+
+                if (Utils::IsTwoHanded(a_object)) {
+                    if (right_empty && left_empty) {
+                        return func(a_manager, a_actor, a_object, a_unk);
+                    } else if (a_object->IsWeapon() && a_object->As<RE::TESObjectWEAP>()->IsBound()) {
+                        RE::DebugNotification("You can't summon this weapon - you need both hands free!", "UIMenuCancel");
+                        return;
+                    }
+                } else {
                     if (left && left_empty) {
                         return func(a_manager, a_actor, a_object, a_unk);
                     } else if (!left && right_empty) {
-                        return func(a_manager, a_actor, a_object, a_unk);
-                    }
-                } else {
-                    if (right_empty && left_empty) {
                         return func(a_manager, a_actor, a_object, a_unk);
                     }
                 }
@@ -169,23 +160,10 @@ namespace Hooks {
                 logger::debug("[Equip Spell Hook]:[{} - {}] Weapon State {}", a_actor->GetName(), a_actor->GetFormID(),
                               Helper::WeaponStateToString(actorState->GetWeaponState()));
 
-                auto actor_right_hand = a_actor->GetEquippedObject(false);
-                auto actor_left_hand = a_actor->GetEquippedObject(true);
-
                 // if equip to empty hand
-                bool left_empty = false;
-                bool right_empty = false;
-                if (!actor_left_hand) {
-                    left_empty = true;
-                } else if (actor_left_hand->Is(RE::FormType::Spell) || actor_left_hand->Is(RE::FormType::Light) ||
-                           actor_left_hand->Is(RE::FormType::Scroll)) {
-                    left_empty = true;
-                }
-                if (!actor_right_hand) {
-                    right_empty = true;
-                } else if (actor_right_hand->Is(RE::FormType::Spell) || actor_right_hand->Is(RE::FormType::Scroll)) {
-                    right_empty = true;
-                }
+                std::pair<bool, bool> hands_empty = Utils::GetIfHandsEmpty(a_actor);
+                bool left_empty = hands_empty.second;
+                bool right_empty = hands_empty.first;
 
                 if (*a_slot == Utils::left_hand_slot && left_empty) {
                     return func(a_manager, a_actor, a_spell, a_slot);

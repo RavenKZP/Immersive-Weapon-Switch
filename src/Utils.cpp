@@ -410,6 +410,33 @@ namespace Utils {
         return res;
     }
 
+    std::pair<bool, bool> GetIfHandsEmpty(RE::Actor* act) {
+        auto actor_right_hand = act->GetEquippedObject(false);
+        auto actor_left_hand = act->GetEquippedObject(true);
+
+        bool left_empty = false;
+        bool right_empty = false;
+
+        if (!actor_left_hand) {
+            left_empty = true;
+        } else if (actor_left_hand->Is(RE::FormType::Spell) || actor_left_hand->Is(RE::FormType::Light) ||
+                   actor_left_hand->Is(RE::FormType::Scroll)) {
+            left_empty = true;
+        } else if (actor_left_hand->IsWeapon() && actor_left_hand->As<RE::TESObjectWEAP>()->IsBound()) {
+            left_empty = true;
+        }
+
+        if (!actor_right_hand) {
+            right_empty = true;
+        } else if (actor_right_hand->Is(RE::FormType::Spell) || actor_right_hand->Is(RE::FormType::Scroll)) {
+            right_empty = true;
+        } else if (actor_right_hand->IsWeapon() && actor_right_hand->As<RE::TESObjectWEAP>()->IsBound()) {
+            right_empty = true;
+        }
+
+        return std::make_pair(right_empty, left_empty);
+    }
+
     template <typename T>
     void SetInventoryInfo(T* obj, bool left, bool unequip) {
         if (!obj) {
