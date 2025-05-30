@@ -37,17 +37,16 @@ RE::BSEventNotifyControl EquipAnimationEventSink::ProcessEvent(const RE::BSAnima
                                                           RE::BSTEventSource<RE::BSAnimationGraphEvent>*) {
     const RE::Actor* actor = a_event->holder->As<RE::Actor>();
 
+    if (a_event->tag == "WeaponSheathe" || a_event->tag == "IdleStop") {
+        Utils::ProceedAnimationInfo(Utils::GetActor(actor));
+    }
+
     if (a_event->tag == "WeapEquip_Out" || a_event->tag == "WeapEquip_OutMoving") {
         logger::debug("[EquipAnimationEventSink]:[{} - {:08X}] {} Event", actor->GetName(), actor->GetFormID(),
                       std::string(a_event->tag));
 
         actor->RemoveAnimationGraphEventSink(this);
-
-        auto actor_curr_right = actor->GetEquippedObject(false);
-        auto actor_curr_left = actor->GetEquippedObject(true);
-
-        Utils::RemoveInventoryInfo(actor_curr_right);
-        Utils::RemoveInventoryInfo(actor_curr_left);
+        Utils::RemoveAnimationInfo(Utils::GetActor(actor));
     }
     return RE::BSEventNotifyControl::kContinue;
 }

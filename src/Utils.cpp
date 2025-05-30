@@ -73,9 +73,20 @@ namespace Utils {
         equip_keyword_left = FindOrCreateKeyword("IWS_EquipInProgressLeft");
         equip_keyword_right = FindOrCreateKeyword("IWS_EquipInProgressRight");
 
+        auto temp_equip_left = RE::SpellItem::LookupByEditorID("IWS_EquipInProgressLeft_SPELL");
+        auto temp_equip_right = RE::SpellItem::LookupByEditorID("IWS_EquipInProgressRight_SPELL");
+        auto temp_unequip_left = RE::SpellItem::LookupByEditorID("IWS_UnequipInProgressLeft_SPELL");
+        auto temp_unequip_right = RE::SpellItem::LookupByEditorID("IWS_UnequipInProgressRight_SPELL");
+        if (temp_equip_left && temp_equip_right && temp_unequip_left && temp_unequip_right) {
+            equip_left = temp_equip_left->As<RE::SpellItem>();
+            equip_right = temp_equip_right->As<RE::SpellItem>();
+            unequip_left = temp_unequip_left->As<RE::SpellItem>();
+            unequip_right = temp_unequip_right->As<RE::SpellItem>();
+        }
         if (unarmed_weapon && right_hand_slot && left_hand_slot && switch_keyword_right && switch_keyword_left &&
-            unequip_keyword_left && unequip_keyword_right && equip_keyword_left && equip_keyword_right) {
-
+            unequip_keyword_left && unequip_keyword_right && equip_keyword_left && equip_keyword_right && equip_left &&
+            equip_right && unequip_left && unequip_right) {
+            
             logger::info("[InitGlobals]: Global variables initialized");
         } else {
             logger::error("[InitGlobals]: Error during Initialization of Global variables");
@@ -278,11 +289,6 @@ namespace Utils {
         return res;
     }
 
-    RE::Actor* GetActor(const RE::Actor* act) {
-        RE::Actor* a_actor = RE::TESForm::LookupByID(act->GetFormID())->As<RE::Actor>();
-        return a_actor;
-    }
-
     AnimationEventSink* GetAnimationEventSink(RE::Actor* act) {
         AnimationEventSink* res{nullptr};
         std::shared_lock ulock(actor_equip_event_mutex);
@@ -311,9 +317,6 @@ namespace Utils {
         if (eqEve.right) {
             if (actor->IsPlayerRef()) {
                 RemoveInventoryInfo(eqEve.right);
-                SetInventoryInfo(eqEve.right, false, false, true);
-                const auto eventSink = new EquipAnimationEventSink();
-                actor->AddAnimationGraphEventSink(eventSink);
             }
             logger::debug("[ExecuteEvent]:[{} - {:08X}] {}Equiping right: {}", actor->GetName(), actor->GetFormID(),
                           eqEve.unequip_right ? "Un" : "", eqEve.right->GetName());
@@ -334,9 +337,6 @@ namespace Utils {
         if (eqEve.left) {
             if (actor->IsPlayerRef()) {
                 RemoveInventoryInfo(eqEve.left);
-                SetInventoryInfo(eqEve.right, true, false, true);
-                const auto eventSink = new EquipAnimationEventSink();
-                actor->AddAnimationGraphEventSink(eventSink);
             }
             logger::debug("[ExecuteEvent]:[{} - {:08X}] {}Equiping left: {}", actor->GetName(), actor->GetFormID(),
                           eqEve.unequip_left ? "Un" : "", eqEve.left->GetName());
@@ -494,26 +494,12 @@ namespace Utils {
     }
 
     template <typename T>
-    void SetInventoryInfo(T* obj, bool left, bool unequip, bool equip) {
+    void SetInventoryInfo(T* obj, bool left, bool unequip) {
         if (!obj) {
             return;
         }
         RE::BGSKeywordForm* kwdForm = obj->As<RE::BGSKeywordForm>();
-        if (equip) {
-            if (left) {
-                if (kwdForm && equip_keyword_left) {
-                    if (!kwdForm->HasKeyword(equip_keyword_left)) {
-                        kwdForm->AddKeyword(equip_keyword_left);
-                    }
-                }
-            } else {
-                if (kwdForm && equip_keyword_right) {
-                    if (!kwdForm->HasKeyword(equip_keyword_right)) {
-                        kwdForm->AddKeyword(equip_keyword_right);
-                    }
-                }
-            }
-        } else if (unequip) {
+        if (unequip) {
             if (left) {
                 if (kwdForm && unequip_keyword_left) {
                     if (!kwdForm->HasKeyword(unequip_keyword_left)) {
@@ -571,17 +557,105 @@ namespace Utils {
                 kwdForm->RemoveKeyword(unequip_keyword_right);
             }
         }
-        if (kwdForm && equip_keyword_left) {
-            if (kwdForm->HasKeyword(equip_keyword_left)) {
-                kwdForm->RemoveKeyword(equip_keyword_left);
-            }
-        }
-        if (kwdForm && equip_keyword_right) {
-            if (kwdForm->HasKeyword(equip_keyword_right)) {
-                kwdForm->RemoveKeyword(equip_keyword_right);
-            }
-        }
         RE::SendUIMessage::SendInventoryUpdateMessage(RE::PlayerCharacter::GetSingleton(), nullptr);
     }
+
+    void SetAnimationInfo(RE::Actor* act, bool left, bool equip) {
+        if (!act) {
+            return;
+        }
+        logger::debug("[SetAnimationInfo]:[{} - {:08X}] left {} equip {}", act->GetName(), act->GetFormID(), left,
+                      equip);
+        const auto eventSink = new EquipAnimationEventSink();
+        act->AddAnimationGraphEventSink(eventSink);
+
+        if (equip) {
+            if (left) {
+                if (equip_left) {
+                    if (!act->HasSpell(equip_left)) {
+                        act->AddSpell(equip_left);
+                    }
+                }
+            } else {
+                if (equip_right) {
+                    if (!act->HasSpell(equip_right)) {
+                        act->AddSpell(equip_right);
+                    }
+                }
+            }
+        } else {
+            if (left) {
+                if (unequip_left) {
+                    if (!act->HasSpell(unequip_left)) {
+                        act->AddSpell(unequip_left);
+                    }
+                }
+            } else {
+                if (unequip_right) {
+                    if (!act->HasSpell(unequip_right)) {
+                        act->AddSpell(unequip_right);
+                    }
+                }
+            }
+        }
+    }
+
+    void ProceedAnimationInfo(RE::Actor* act) {
+        if (!act) {
+            return;
+        }
+        logger::debug("[ProceedAnimationInfo]:[{} - {:08X}]", act->GetName(), act->GetFormID());
+        if (unequip_left) {
+            if (act->HasSpell(unequip_left)) {
+                act->RemoveSpell(unequip_left);
+                if (equip_left) {
+                    if (!act->HasSpell(equip_left)) {
+                        act->AddSpell(equip_left);
+                    }
+                }
+            }
+        }
+        if (unequip_right) {
+            if (act->HasSpell(unequip_right)) {
+                act->RemoveSpell(unequip_right);
+                if (equip_keyword_right) {
+                    if (!act->HasSpell(equip_right)) {
+                        act->AddSpell(equip_right);
+                    }
+                }
+            }
+        }
+    }
+    
+    void RemoveAnimationInfo(RE::Actor* act) {
+        if (!act) {
+            return;
+        }
+        logger::debug("[RemoveAnimationInfo]:[{} - {:08X}]", act->GetName(), act->GetFormID());
+
+
+        if (unequip_left) {
+            if (act->HasSpell(unequip_left)) {
+                act->RemoveSpell(unequip_left);
+            }
+        }
+        if (unequip_right) {
+            if (act->HasSpell(unequip_right)) {
+                act->RemoveSpell(unequip_right);
+            }
+        }
+        if (equip_left) {
+            if (act->HasSpell(equip_left)) {
+                act->RemoveSpell(equip_left);
+            }
+        }
+        if (equip_right) {
+            if (act->HasSpell(equip_right)) {
+                act->RemoveSpell(equip_right);
+            }
+        }
+    }
+
+    
 
 }  // Utils

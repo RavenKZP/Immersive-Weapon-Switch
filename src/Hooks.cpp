@@ -150,6 +150,7 @@ namespace Hooks {
                             if (Utils::IsAlreadyTracked(a_actor)) {
                                 Utils::RemoveEvent(a_actor);
                             }
+                            Utils::SetAnimationInfo(a_actor, left, true);
                             return func(a_manager, a_actor, a_object, a_unk);
                         }
                     }
@@ -157,12 +158,14 @@ namespace Hooks {
                         if (Utils::IsAlreadyTracked(a_actor)) {
                             Utils::RemoveEvent(a_actor);
                         }
+                        Utils::SetAnimationInfo(a_actor, left, true);
                         return func(a_manager, a_actor, a_object, a_unk);
                     }
                 }
 
                 auto eventSink = GetOrCreateEventSink(a_actor);
                 Utils::UpdateEventInfo(a_actor, a_object, left, false, eventSink);
+                Utils::SetAnimationInfo(a_actor, left, false);
 
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
@@ -217,6 +220,7 @@ namespace Hooks {
 
                 auto eventSink = GetOrCreateEventSink(a_actor);
                 Utils::UpdateEventInfo(a_actor, a_spell, *a_slot == Utils::left_hand_slot, false, eventSink);
+                Utils::SetAnimationInfo(a_actor, *a_slot == Utils::left_hand_slot, false);
 
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
@@ -259,17 +263,17 @@ namespace Hooks {
             if (Utils::IsAlreadyTracked(a_actor)) {
                 Utils::RemoveEvent(a_actor);
             }
-
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
         // Deadlock breaker to detect rapid unequip spam
         // This happens in rare cases such as NPC transformation into the werewolf
         static RE::Actor* last_actor = nullptr;
-        static int spam_counter = 0;
+        static RE::TESBoundObject* last_object = nullptr;
         static std::chrono::steady_clock::time_point last_time;
+        static int spam_counter = 0;
 
-        if (a_actor == last_actor) {
+        if (a_actor == last_actor && a_object == last_object) {
             if (std::chrono::duration_cast<std::chrono::milliseconds>(now - last_time).count() < 50) {
                 spam_counter++;
             } else {
@@ -279,8 +283,9 @@ namespace Hooks {
             spam_counter = 0;
         }
 
-        last_time = now;
         last_actor = a_actor;
+        last_object = a_object;
+        last_time = now;
 
         if (spam_counter > 5) {
             logger::warn("[UnEquip Hook]:[{} - {:08X}] Detected unequip loop allowing unequip to break deadlock",
@@ -299,10 +304,18 @@ namespace Hooks {
                               a_actor->GetFormID(), Helper::WeaponStateToString(actorState->GetWeaponState()),
                               Utils::IsAlreadyTracked(a_actor) ? "" : "NOT");
 
+
                 bool left = false;
-                if (Utils::player_equip_left == true) {
-                    left = true;
-                    Utils::player_equip_left = false;
+
+                if (a_actor->IsPlayerRef()) {
+                    if (Utils::player_equip_left == true) {
+                        left = true;
+                        Utils::player_equip_left = false;
+                    }
+                } else {
+                    if (a_object == a_actor->GetEquippedObject(true)) {
+                        left = true;
+                    }
                 }
 
                 if (Utils::IsLeftOnly(a_object)) {
@@ -311,6 +324,7 @@ namespace Hooks {
 
                 auto eventSink = GetOrCreateEventSink(a_actor);
                 Utils::UpdateEventInfo(a_actor, a_object, left, true, eventSink);
+                Utils::SetAnimationInfo(a_actor, left, false);
 
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;

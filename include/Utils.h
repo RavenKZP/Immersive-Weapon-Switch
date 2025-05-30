@@ -24,6 +24,8 @@ namespace Utils {
 
     void InitGlobals();
 
+    inline RE::Actor* GetActor(const RE::Actor* act) { return const_cast<RE::Actor*>(act); };
+
     // Equip Event Related Functions
     void UpdateEventInfo(RE::Actor* actID, RE::TESBoundObject* object, bool left, bool unequip, AnimationEventSink* evSink);
     bool IsAlreadyTracked(RE::Actor* actID);
@@ -32,7 +34,6 @@ namespace Utils {
     void ClearAllEvents();
     EquipEvent GetEvent(RE::Actor* actID);
     EquipEvent GetEvent(const RE::Actor* act);
-    RE::Actor* GetActor(const RE::Actor* act);
     AnimationEventSink* GetAnimationEventSink(RE::Actor* act);
     void ExecuteEvent(const RE::Actor* act);
 
@@ -50,10 +51,15 @@ namespace Utils {
 
     //I4 Icons
     template <typename T>
-    void SetInventoryInfo(T* obj, bool left, bool unequip = false, bool equip = false);
-
+    void SetInventoryInfo(T* obj, bool left, bool unequip = false);
     template <typename T>
     void RemoveInventoryInfo(T* obj);
+
+    // OAR Animations
+    void SetAnimationInfo(RE::Actor* act, bool left, bool equip = true);
+    void ProceedAnimationInfo(RE::Actor* act);
+    void RemoveAnimationInfo(RE::Actor* act);
+
 
     inline RE::BGSEquipSlot* right_hand_slot;
     inline RE::BGSEquipSlot* left_hand_slot;
@@ -66,6 +72,11 @@ namespace Utils {
     inline RE::BGSKeyword* unequip_keyword_right;
     inline RE::BGSKeyword* equip_keyword_left;
     inline RE::BGSKeyword* equip_keyword_right;
+
+    inline RE::SpellItem* unequip_left;
+    inline RE::SpellItem* unequip_right;
+    inline RE::SpellItem* equip_left;
+    inline RE::SpellItem* equip_right;
 
     inline std::shared_mutex actor_equip_event_mutex;
     inline std::unordered_map<RE::Actor*, EquipEvent> actor_equip_event;
