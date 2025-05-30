@@ -2,6 +2,8 @@
 #include <shared_mutex>
 #include <unordered_set>
 
+#include "Animation.h"
+
 namespace Helper {
 
     std::string WeaponStateToString(RE::WEAPON_STATE state);
@@ -17,12 +19,13 @@ namespace Utils {
         RE::TESBoundObject* left = nullptr;
         bool unequip_right = false;
         bool unequip_left = false;
+        AnimationEventSink* eventSink;
     };
 
     void InitGlobals();
 
     // Equip Event Related Functions
-    void UpdateEventInfo(RE::Actor* actID, RE::TESBoundObject* object, bool left, bool unequip);
+    void UpdateEventInfo(RE::Actor* actID, RE::TESBoundObject* object, bool left, bool unequip, AnimationEventSink* evSink);
     bool IsAlreadyTracked(RE::Actor* actID);
     void RemoveEvent(RE::Actor* actID);
     void RemoveEvent(const RE::Actor* actID);
@@ -30,6 +33,7 @@ namespace Utils {
     EquipEvent GetEvent(RE::Actor* actID);
     EquipEvent GetEvent(const RE::Actor* act);
     RE::Actor* GetActor(const RE::Actor* act);
+    AnimationEventSink* GetAnimationEventSink(RE::Actor* act);
     void ExecuteEvent(const RE::Actor* act);
 
     // Returns true whenever given object is equipable in left, right or both hands
@@ -46,7 +50,7 @@ namespace Utils {
 
     //I4 Icons
     template <typename T>
-    void SetInventoryInfo(T* obj, bool left, bool unequip = false);
+    void SetInventoryInfo(T* obj, bool left, bool unequip = false, bool equip = false);
 
     template <typename T>
     void RemoveInventoryInfo(T* obj);
@@ -70,6 +74,11 @@ namespace Utils {
 
     inline RE::TESObjectREFR* remove_act;
     inline RE::TESBoundObject* remove_obj;
+    inline std::chrono::steady_clock::time_point remove_time;
+    
+    inline RE::Actor* justEquiped_act;
+    inline RE::TESBoundObject* justEquiped_obj;
+    inline std::chrono::steady_clock::time_point justEquiped_time;
 
 }
 

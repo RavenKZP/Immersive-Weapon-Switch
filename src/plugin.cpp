@@ -7,6 +7,7 @@
 
 void OnMessage(SKSE::MessagingInterface::Message* message) {
     if (message->type == SKSE::MessagingInterface::kDataLoaded) {
+        Hooks::InstallReadOnly();
         Settings::LoadSettings();
         Utils::InitGlobals();
         MCP::Register();

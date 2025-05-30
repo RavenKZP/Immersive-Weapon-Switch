@@ -31,6 +31,11 @@ namespace MCP {
         ImGui::Checkbox("Mod Active", &Settings::Mod_Active);
         ImGui::Checkbox("NPC Active", &Settings::NPC_Switch);
         ImGui::Checkbox("PC Active", &Settings::PC_Switch);
+
+        if (!Settings::Mod_Active) {
+            Utils::ClearAllEvents();
+        }
+
     }
 
     void __stdcall MCP::RenderLog() {

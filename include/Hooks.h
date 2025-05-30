@@ -3,6 +3,7 @@
 namespace Hooks {
 
     void Install();
+    void InstallReadOnly();
 
     struct EquipObjectHook {
         static void InstallHook(SKSE::Trampoline& a_trampoline);

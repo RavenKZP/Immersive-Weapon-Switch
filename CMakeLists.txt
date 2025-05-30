@@ -16,7 +16,7 @@ cmake_minimum_required(VERSION 3.21)
 # Set your project name. This will be the name of your SKSE .dll file.
 set(AUTHOR_NAME "RavenKZP")
 set(PRODUCT_NAME "ImmersiveWeaponSwitch")
-project(${PRODUCT_NAME} VERSION 0.3.0.2 LANGUAGES CXX)
+project(${PRODUCT_NAME} VERSION 0.3.0.5 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
@@ -93,7 +93,6 @@ target_include_directories(
 	PRIVATE
 	${CLIB_UTIL_INCLUDE_DIRS}
     ${SKSE_MCP_INCLUDE_DIRS}
-    #${GRAB_AND_THROW_INCLUDE_DIRS}
 	${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
