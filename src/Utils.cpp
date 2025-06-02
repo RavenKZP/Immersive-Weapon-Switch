@@ -86,7 +86,6 @@ namespace Utils {
         if (unarmed_weapon && right_hand_slot && left_hand_slot && switch_keyword_right && switch_keyword_left &&
             unequip_keyword_left && unequip_keyword_right && equip_keyword_left && equip_keyword_right && equip_left &&
             equip_right && unequip_left && unequip_right) {
-            
             logger::info("[InitGlobals]: Global variables initialized");
         } else {
             logger::error("[InitGlobals]: Error during Initialization of Global variables");
@@ -99,9 +98,8 @@ namespace Utils {
             logger::error("[UpdateEventInfo]: {} is nullptr", act ? "Object" : "Actor");
             return;
         }
-        logger::debug("[UpdateEventInfo]:[{} - {:08X}] {} - {} - {}", act->GetName(), act->GetFormID(), object->GetName(),
-                      left ? "left" : "right",
-                      unequip ? "unequip" : "equip");
+        logger::debug("[UpdateEventInfo]:[{} - {:08X}] {} - {} - {}", act->GetName(), act->GetFormID(),
+                      object->GetName(), left ? "left" : "right", unequip ? "unequip" : "equip");
         std::unique_lock ulock(actor_equip_event_mutex);
 
         auto actor_curr_right = act->GetEquippedObject(false);
@@ -114,7 +112,7 @@ namespace Utils {
             RE::TESObjectREFR::Count count = 0;
 
             if (!object->IsWeapon()) {
-                count = 69; //whatever more than 2 :D
+                count = 69;  // whatever more than 2 :D
             } else {
                 RE::TESObjectREFR::InventoryItemMap inv = act->GetInventory();
                 auto it_inv = inv.find(object);
@@ -128,7 +126,7 @@ namespace Utils {
                     return;
                 }
             }
-            
+
             if (object->Is(RE::FormType::Spell) || object->Is(RE::FormType::Scroll)) {  // Double equip = both hands
                 if (object == it->second.left) {
                     left = false;
@@ -241,18 +239,14 @@ namespace Utils {
     void RemoveEvent(RE::Actor* act) {
         std::unique_lock ulock(actor_equip_event_mutex);
         if (const auto it = actor_equip_event.find(act); it != actor_equip_event.end()) {
-            RemoveEventSink(act,it->second.eventSink);
+            RemoveEventSink(act, it->second.eventSink);
             actor_equip_event.erase(it);
         }
     }
 
     void RemoveEvent(const RE::Actor* act) {
-        std::unique_lock ulock(actor_equip_event_mutex);
-        RE::Actor* a_actor = const_cast<RE::Actor*>(act);
-        if (const auto it = actor_equip_event.find(a_actor); it != actor_equip_event.end()) {
-            RemoveEventSink(act, it->second.eventSink);
-            actor_equip_event.erase(it);
-        }
+        RE::Actor* actor = ConstCastActor(act);
+        RemoveEvent(actor);
     }
 
     void ClearAllEvents() {
@@ -280,13 +274,8 @@ namespace Utils {
     }
 
     EquipEvent GetEvent(const RE::Actor* act) {
-        std::shared_lock ulock(actor_equip_event_mutex);
-        EquipEvent res{nullptr};
-        RE::Actor* a_actor = const_cast<RE::Actor*>(act);
-        if (const auto it = actor_equip_event.find(a_actor); it != actor_equip_event.end()) {
-            res = it->second;
-        }
-        return res;
+        RE::Actor* actor = ConstCastActor(act);
+        return GetEvent(actor);
     }
 
     AnimationEventSink* GetAnimationEventSink(RE::Actor* act) {
@@ -299,13 +288,13 @@ namespace Utils {
     }
 
     void ExecuteEvent(const RE::Actor* const_act) {
-        RE::Actor* actor = GetActor(const_act);
+        RE::Actor* actor = ConstCastActor(const_act);
         EquipEvent eqEve = GetEvent(const_act);
 
         Utils::RemoveEvent(actor);
         auto actor_curr_right = actor->GetEquippedObject(false);
         auto actor_curr_left = actor->GetEquippedObject(true);
-        
+
         if (actor->IsPlayerRef()) {
             RemoveInventoryInfo(actor_curr_right);
             RemoveInventoryInfo(actor_curr_left);
@@ -428,7 +417,7 @@ namespace Utils {
         if (a_object && a_object->IsWeapon()) {
             /* Old solution
             if ((a_object->IsWeapon()) &&
-                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) || 
+                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) ||
                  (a_object->As<RE::TESObjectWEAP>()->IsCrossbow()) ||
                  (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedAxe()) ||
                  (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedSword()))) {
@@ -626,13 +615,12 @@ namespace Utils {
             }
         }
     }
-    
+
     void RemoveAnimationInfo(RE::Actor* act) {
         if (!act) {
             return;
         }
         logger::debug("[RemoveAnimationInfo]:[{} - {:08X}]", act->GetName(), act->GetFormID());
-
 
         if (unequip_left) {
             if (act->HasSpell(unequip_left)) {
@@ -655,7 +643,4 @@ namespace Utils {
             }
         }
     }
-
-    
-
 }  // Utils

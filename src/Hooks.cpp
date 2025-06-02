@@ -151,6 +151,9 @@ namespace Hooks {
                                 Utils::RemoveEvent(a_actor);
                             }
                             Utils::SetAnimationInfo(a_actor, left, true);
+                            Utils::justEquiped_act = a_actor;
+                            Utils::justEquiped_obj = a_object;
+                            Utils::justEquiped_time = std::chrono::steady_clock::now();
                             return func(a_manager, a_actor, a_object, a_unk);
                         }
                     }
@@ -159,6 +162,9 @@ namespace Hooks {
                             Utils::RemoveEvent(a_actor);
                         }
                         Utils::SetAnimationInfo(a_actor, left, true);
+                        Utils::justEquiped_act = a_actor;
+                        Utils::justEquiped_obj = a_object;
+                        Utils::justEquiped_time = std::chrono::steady_clock::now();
                         return func(a_manager, a_actor, a_object, a_unk);
                     }
                 }
@@ -172,6 +178,9 @@ namespace Hooks {
                 return;
             }
         }
+        Utils::justEquiped_act = a_actor;
+        Utils::justEquiped_obj = a_object;
+        Utils::justEquiped_time = std::chrono::steady_clock::now();
         return func(a_manager, a_actor, a_object, a_unk);
     }
 

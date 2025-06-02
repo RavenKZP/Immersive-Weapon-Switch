@@ -24,7 +24,7 @@ namespace Utils {
 
     void InitGlobals();
 
-    inline RE::Actor* GetActor(const RE::Actor* act) { return const_cast<RE::Actor*>(act); };
+    inline RE::Actor* ConstCastActor(const RE::Actor* act) { return const_cast<RE::Actor*>(act); };
 
     // Equip Event Related Functions
     void UpdateEventInfo(RE::Actor* actID, RE::TESBoundObject* object, bool left, bool unequip, AnimationEventSink* evSink);

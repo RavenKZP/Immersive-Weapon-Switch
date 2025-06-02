@@ -25,7 +25,7 @@ RE::BSEventNotifyControl AnimationEventSink::ProcessEvent(const RE::BSAnimationG
         logger::debug("[AnimationEventSink]:[{} - {:08X}] {} Event", actor->GetName(), actor->GetFormID(),
                       std::string(a_event->tag));
 
-        RE::Actor* actor_ptr = Utils::GetActor(actor);
+        RE::Actor* actor_ptr = Utils::ConstCastActor(actor);
         actor_ptr->DrawWeaponMagicHands(false);
         actor_ptr->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
     }
@@ -38,7 +38,7 @@ RE::BSEventNotifyControl EquipAnimationEventSink::ProcessEvent(const RE::BSAnima
     const RE::Actor* actor = a_event->holder->As<RE::Actor>();
 
     if (a_event->tag == "WeaponSheathe" || a_event->tag == "IdleStop") {
-        Utils::ProceedAnimationInfo(Utils::GetActor(actor));
+        Utils::ProceedAnimationInfo(Utils::ConstCastActor(actor));
     }
 
     if (a_event->tag == "WeapEquip_Out" || a_event->tag == "WeapEquip_OutMoving") {
@@ -46,7 +46,7 @@ RE::BSEventNotifyControl EquipAnimationEventSink::ProcessEvent(const RE::BSAnima
                       std::string(a_event->tag));
 
         actor->RemoveAnimationGraphEventSink(this);
-        Utils::RemoveAnimationInfo(Utils::GetActor(actor));
+        Utils::RemoveAnimationInfo(Utils::ConstCastActor(actor));
     }
     return RE::BSEventNotifyControl::kContinue;
 }
