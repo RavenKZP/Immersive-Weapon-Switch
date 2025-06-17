@@ -73,19 +73,8 @@ namespace Utils {
         equip_keyword_left = FindOrCreateKeyword("IWS_EquipInProgressLeft");
         equip_keyword_right = FindOrCreateKeyword("IWS_EquipInProgressRight");
 
-        auto temp_equip_left = RE::SpellItem::LookupByEditorID("IWS_EquipInProgressLeft_SPELL");
-        auto temp_equip_right = RE::SpellItem::LookupByEditorID("IWS_EquipInProgressRight_SPELL");
-        auto temp_unequip_left = RE::SpellItem::LookupByEditorID("IWS_UnequipInProgressLeft_SPELL");
-        auto temp_unequip_right = RE::SpellItem::LookupByEditorID("IWS_UnequipInProgressRight_SPELL");
-        if (temp_equip_left && temp_equip_right && temp_unequip_left && temp_unequip_right) {
-            equip_left = temp_equip_left->As<RE::SpellItem>();
-            equip_right = temp_equip_right->As<RE::SpellItem>();
-            unequip_left = temp_unequip_left->As<RE::SpellItem>();
-            unequip_right = temp_unequip_right->As<RE::SpellItem>();
-        }
         if (unarmed_weapon && right_hand_slot && left_hand_slot && switch_keyword_right && switch_keyword_left &&
-            unequip_keyword_left && unequip_keyword_right && equip_keyword_left && equip_keyword_right && equip_left &&
-            equip_right && unequip_left && unequip_right) {
+            unequip_keyword_left && unequip_keyword_right && equip_keyword_left && equip_keyword_right) {
             logger::info("[InitGlobals]: Global variables initialized");
         } else {
             logger::error("[InitGlobals]: Error during Initialization of Global variables");
@@ -156,7 +145,7 @@ namespace Utils {
                     }
                     it->second.left = object;
                     it->second.unequip_left = unequip;
-                    if (it->second.right == object && count < 2) {
+                    if (it->second.right == object && count < 2 && !it->second.unequip_right) {
                         it->second.right = nullptr;
                     }
                 } else {
@@ -182,7 +171,7 @@ namespace Utils {
                         }
                         it->second.left = nullptr;
                     }
-                    if (it->second.left == object && count < 2) {
+                    if (it->second.left == object && count < 2 && !it->second.unequip_left) {
                         it->second.left = nullptr;
                     }
                 } else {
@@ -239,7 +228,10 @@ namespace Utils {
     void RemoveEvent(RE::Actor* act) {
         std::unique_lock ulock(actor_equip_event_mutex);
         if (const auto it = actor_equip_event.find(act); it != actor_equip_event.end()) {
-            RemoveEventSink(act, it->second.eventSink);
+            RemoveInventoryInfo(it->second.left);
+            RemoveInventoryInfo(it->second.right);
+            RemoveInventoryInfo(act->GetEquippedObject(false));
+            RemoveInventoryInfo(act->GetEquippedObject(true));
             actor_equip_event.erase(it);
         }
     }
@@ -258,9 +250,9 @@ namespace Utils {
                 to_remove.push_back(actor);
             }
         }
-
         for (auto* actor : to_remove) {
             RemoveEvent(actor);
+            RemoveAnimationInfo(actor);
         }
     }
 
@@ -289,7 +281,7 @@ namespace Utils {
 
     void ExecuteEvent(const RE::Actor* const_act) {
         RE::Actor* actor = ConstCastActor(const_act);
-        EquipEvent eqEve = GetEvent(const_act);
+        EquipEvent eqEve = GetEvent(const_act);  // May return empty
 
         Utils::RemoveEvent(actor);
         auto actor_curr_right = actor->GetEquippedObject(false);
@@ -300,47 +292,59 @@ namespace Utils {
             RemoveInventoryInfo(actor_curr_left);
         }
 
-        actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kSheathed;
-
         auto EqManager = RE::ActorEquipManager::GetSingleton();
         if (eqEve.right) {
+            actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kSheathed;
             if (actor->IsPlayerRef()) {
                 RemoveInventoryInfo(eqEve.right);
             }
             logger::debug("[ExecuteEvent]:[{} - {:08X}] {}Equiping right: {}", actor->GetName(), actor->GetFormID(),
                           eqEve.unequip_right ? "Un" : "", eqEve.right->GetName());
-            /*if (actor_curr_right) {
-                EqManager->UnequipObject(actor, actor_curr_right->As<RE::TESBoundObject>(), nullptr, 1, nullptr, false,
-                                         false, false, true);
-            }*/
-            if (eqEve.right->As<RE::SpellItem>()) {
+            if (eqEve.right->As<RE::SpellItem>() && !eqEve.right->Is(RE::FormType::Scroll)) {
                 EqManager->EquipSpell(actor, eqEve.right->As<RE::SpellItem>(), Utils::right_hand_slot);
             } else {
                 if (eqEve.unequip_right) {
-                    EqManager->UnequipObject(actor, eqEve.right, nullptr, 1, nullptr, false, false, false, false);
+                    EqManager->UnequipObject(actor, eqEve.right, nullptr, 1, Utils::right_hand_slot, false, false,
+                                             false, false);
                 } else {
-                    EqManager->EquipObject(actor, eqEve.right, nullptr, 1, nullptr, false, false, false, false);
+                    EqManager->EquipObject(actor, eqEve.right, nullptr, 1, Utils::right_hand_slot, false, false, false,
+                                           false);
                 }
             }
+            RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
+
+            // No idea why this order matter, but it does
+            actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToDraw;
+            actor->DrawWeaponMagicHands(true);
         }
         if (eqEve.left) {
+            actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kSheathed;
             if (actor->IsPlayerRef()) {
                 RemoveInventoryInfo(eqEve.left);
             }
             logger::debug("[ExecuteEvent]:[{} - {:08X}] {}Equiping left: {}", actor->GetName(), actor->GetFormID(),
                           eqEve.unequip_left ? "Un" : "", eqEve.left->GetName());
-            /*if (actor_curr_left) {
-                EqManager->UnequipObject(actor, actor_curr_left->As<RE::TESBoundObject>(), nullptr, 1, nullptr, false,
-                                         false, false, true);
-            }*/
-            if (eqEve.left->As<RE::SpellItem>()) {
+
+            if (eqEve.left->As<RE::SpellItem>() && !eqEve.left->Is(RE::FormType::Scroll)) {
                 EqManager->EquipSpell(actor, eqEve.left->As<RE::SpellItem>(), Utils::left_hand_slot);
             } else {
                 if (IsLeftOnly(eqEve.left)) {
                     if (eqEve.unequip_left) {
                         EqManager->UnequipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, false);
                     } else {
-                        EqManager->EquipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, false);
+                        if (eqEve.left->Is(RE::FormType::Armor)) {
+                            EqManager->EquipObject(actor, eqEve.left, nullptr, 1,
+                                                   eqEve.left->As<RE::TESObjectARMO>()->GetEquipSlot(), false, false,
+                                                   false, false);
+                            RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
+
+                        } else if (eqEve.left->Is(RE::FormType::Light)) {
+                            EqManager->EquipObject(actor, eqEve.left, nullptr, 1,
+                                                   eqEve.left->As<RE::TESObjectLIGH>()->GetEquipSlot(), false, false,
+                                                   false, false);
+                        } else {
+                            EqManager->EquipObject(actor, eqEve.left, nullptr, 1, nullptr, false, false, false, false);
+                        }
                     }
                 } else {
                     if (eqEve.unequip_left) {
@@ -352,12 +356,12 @@ namespace Utils {
                     }
                 }
             }
-        }
-        RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
+            RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
 
-        // No idea why this order matter, but it does
-        actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToDraw;
-        actor->DrawWeaponMagicHands(true);
+            // No idea why this order matter, but it does
+            actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToDraw;
+            actor->DrawWeaponMagicHands(true);
+        }
     }
 
     bool IsInHand(RE::TESBoundObject* a_object) {
@@ -393,42 +397,55 @@ namespace Utils {
         }
         if (a_object->IsWeapon() && a_object->As<RE::TESObjectWEAP>()->IsBound()) {
             res = true;
-        } /*
-        if (a_object->Is(RE::FormType::Armor)) {
-            res = true;
-        } */
+        }
         return res;
     }
 
     bool IsTwoHanded(RE::TESForm* a_object) {
-        if (a_object) {
-            if ((a_object->IsWeapon()) &&
-                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) || (a_object->As<RE::TESObjectWEAP>()->IsCrossbow()) ||
-                 (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedAxe()) ||
-                 (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedSword()))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool IsTwoHanded(RE::TESBoundObject* a_object) {
         bool res = false;
         if (a_object && a_object->IsWeapon()) {
-            /* Old solution
-            if ((a_object->IsWeapon()) &&
-                ((a_object->As<RE::TESObjectWEAP>()->IsBow()) ||
-                 (a_object->As<RE::TESObjectWEAP>()->IsCrossbow()) ||
-                 (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedAxe()) ||
-                 (a_object->As<RE::TESObjectWEAP>()->IsTwoHandedSword()))) {
-                res =  true;
-            }
-            */
             if (const auto equip_slot = a_object->As<RE::TESObjectWEAP>()->GetEquipSlot();
                 equip_slot && equip_slot->GetFormID() == Utils::EquipSlots::Both) {
                 res = true;
             }
         }
+        if (a_object && a_object->Is(RE::FormType::Scroll)) {
+            if (const auto equip_slot = a_object->As<RE::ScrollItem>()->GetEquipSlot();
+                equip_slot && equip_slot->GetFormID() == Utils::EquipSlots::Both) {
+                res = true;
+            }
+        }
+        if (a_object && a_object->Is(RE::FormType::Spell)) {
+            if (const auto equip_slot = a_object->As<RE::SpellItem>()->GetEquipSlot();
+                equip_slot && equip_slot->GetFormID() == Utils::EquipSlots::Both) {
+                res = true;
+            }
+        }
+        return res;
+    }
+
+    bool IsTwoHanded(RE::TESBoundObject* a_object) {
+        bool res = false;
+        if (a_object && a_object->IsWeapon()) {
+            if (const auto equip_slot = a_object->As<RE::TESObjectWEAP>()->GetEquipSlot();
+                equip_slot && equip_slot->GetFormID() == Utils::EquipSlots::Both) {
+                res = true;
+            }
+        }
+        if (a_object && a_object->Is(RE::FormType::Scroll)) {
+            if (const auto equip_slot = a_object->As<RE::ScrollItem>()->GetEquipSlot();
+                equip_slot && equip_slot->GetFormID() == Utils::EquipSlots::Both) {
+                res = true;
+            }
+        }
+        if (a_object && a_object->Is(RE::FormType::Spell)) {
+            if (const auto equip_slot = a_object->As<RE::SpellItem>()->GetEquipSlot();
+                equip_slot && equip_slot->GetFormID() == Utils::EquipSlots::Both) {
+                res = true;
+            }
+        }
+        logger::debug("[IsTwoHanded]:[{} - {:08X}] {}", a_object->GetName(),
+                      a_object->GetFormID(), res);
         return res;
     }
 
@@ -549,98 +566,88 @@ namespace Utils {
         RE::SendUIMessage::SendInventoryUpdateMessage(RE::PlayerCharacter::GetSingleton(), nullptr);
     }
 
+    static bool HasActiveEffectsByEffect(RE::MagicTarget* target, RE::EffectSetting* effectSetting) {
+        if (!target || !effectSetting) {
+            return false;
+        }
+
+        const auto activeEffects = target->GetActiveEffectList();
+        if (!activeEffects) {
+            return false;
+        }
+
+        bool haseffect = false;
+        for (auto* effect : *activeEffects) {
+            if (effect && effect->effect && effect->effect->baseEffect == effectSetting) {
+                haseffect = true;
+            }
+        }
+        return haseffect;
+    }
+
     void SetAnimationInfo(RE::Actor* act, bool left, bool equip) {
         if (!act) {
             return;
         }
+
         logger::debug("[SetAnimationInfo]:[{} - {:08X}] left {} equip {}", act->GetName(), act->GetFormID(), left,
                       equip);
-        const auto eventSink = new EquipAnimationEventSink();
-        act->AddAnimationGraphEventSink(eventSink);
-
-        if (equip) {
-            if (left) {
-                if (equip_left) {
-                    if (!act->HasSpell(equip_left)) {
-                        act->AddSpell(equip_left);
-                    }
-                }
+        if (left) {
+            if (equip) {
+                act->SetGraphVariableBool("bIWS_EquipLeft", true);
             } else {
-                if (equip_right) {
-                    if (!act->HasSpell(equip_right)) {
-                        act->AddSpell(equip_right);
-                    }
-                }
+                act->SetGraphVariableBool("bIWS_UnequipLeft", true);
             }
         } else {
-            if (left) {
-                if (unequip_left) {
-                    if (!act->HasSpell(unequip_left)) {
-                        act->AddSpell(unequip_left);
-                    }
-                }
+            if (equip) {
+                act->SetGraphVariableBool("bIWS_EquipRight", true);
             } else {
-                if (unequip_right) {
-                    if (!act->HasSpell(unequip_right)) {
-                        act->AddSpell(unequip_right);
-                    }
-                }
+                act->SetGraphVariableBool("bIWS_UnequipRight", true);
             }
         }
+    }
+
+    void SetAnimationInfoHandSwitch(RE::Actor* act) {
+        if (!act) {
+            return;
+        }
+        logger::debug("[SetAnimationInfoHandSwitch]:[{} - {:08X}]", act->GetName(), act->GetFormID());
+
+        act->SetGraphVariableBool("bIWS_Switch", true);
     }
 
     void ProceedAnimationInfo(RE::Actor* act) {
         if (!act) {
             return;
         }
+
         logger::debug("[ProceedAnimationInfo]:[{} - {:08X}]", act->GetName(), act->GetFormID());
-        if (unequip_left) {
-            if (act->HasSpell(unequip_left)) {
-                act->RemoveSpell(unequip_left);
-                if (equip_left) {
-                    if (!act->HasSpell(equip_left)) {
-                        act->AddSpell(equip_left);
-                    }
-                }
-            }
+
+        bool LeftGraphVariable;
+        if (act->GetGraphVariableBool("bIWS_UnequipLeft", LeftGraphVariable) && LeftGraphVariable) {
+            act->SetGraphVariableBool("bIWS_EquipLeft", true);
+            act->SetGraphVariableBool("bIWS_UnequipLeft", false);
         }
-        if (unequip_right) {
-            if (act->HasSpell(unequip_right)) {
-                act->RemoveSpell(unequip_right);
-                if (equip_keyword_right) {
-                    if (!act->HasSpell(equip_right)) {
-                        act->AddSpell(equip_right);
-                    }
-                }
-            }
-        }
+
+        bool RightGraphVariable;
+        if (act->GetGraphVariableBool("bIWS_UnequipRight", RightGraphVariable) && RightGraphVariable) {
+            act->SetGraphVariableBool("bIWS_EquipRight", true);
+            act->SetGraphVariableBool("bIWS_UnequipRight", false);
+        } 
     }
 
     void RemoveAnimationInfo(RE::Actor* act) {
         if (!act) {
             return;
         }
+
         logger::debug("[RemoveAnimationInfo]:[{} - {:08X}]", act->GetName(), act->GetFormID());
 
-        if (unequip_left) {
-            if (act->HasSpell(unequip_left)) {
-                act->RemoveSpell(unequip_left);
-            }
-        }
-        if (unequip_right) {
-            if (act->HasSpell(unequip_right)) {
-                act->RemoveSpell(unequip_right);
-            }
-        }
-        if (equip_left) {
-            if (act->HasSpell(equip_left)) {
-                act->RemoveSpell(equip_left);
-            }
-        }
-        if (equip_right) {
-            if (act->HasSpell(equip_right)) {
-                act->RemoveSpell(equip_right);
-            }
-        }
+        act->SetGraphVariableBool("bIWS_EquipLeft", false);
+        act->SetGraphVariableBool("bIWS_UnequipLeft", false);
+        act->SetGraphVariableBool("bIWS_EquipRight", false);
+        act->SetGraphVariableBool("bIWS_UnequipRight", false);
+        act->SetGraphVariableBool("bIWS_Switch", false);
     }
+
 }  // Utils

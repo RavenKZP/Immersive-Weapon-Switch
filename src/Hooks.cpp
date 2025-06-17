@@ -96,9 +96,6 @@ namespace Hooks {
         logger::debug("[Equip Hook]:[{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(), a_actor->GetFormID(),
                       pcSwitchDisabled, npcSwitchDisabled, isDead, notInHand, alreadyEquiped);
         if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped) {
-            if (Utils::IsAlreadyTracked(a_actor)) {
-                Utils::RemoveEvent(a_actor);
-            }
             Utils::justEquiped_act = a_actor;
             Utils::justEquiped_obj = a_object;
             Utils::justEquiped_time = std::chrono::steady_clock::now();
@@ -133,10 +130,12 @@ namespace Hooks {
 
                 if (Utils::IsTwoHanded(a_object)) {
                     if (right_empty && left_empty) {
-                        if (Utils::IsAlreadyTracked(a_actor)) {
-                            Utils::RemoveEvent(a_actor);
+                        if (!Utils::IsAlreadyTracked(a_actor)) {
+                            Utils::justEquiped_act = a_actor;
+                            Utils::justEquiped_obj = a_object;
+                            Utils::justEquiped_time = std::chrono::steady_clock::now();
+                            return func(a_manager, a_actor, a_object, a_unk);
                         }
-                        return func(a_manager, a_actor, a_object, a_unk);
                     } else if (a_object->IsWeapon() && a_object->As<RE::TESObjectWEAP>()->IsBound()) {
                         if (a_actor->IsPlayerRef()) {
                             RE::DebugNotification("You can't summon this weapon - you need both hands free!",
@@ -144,34 +143,42 @@ namespace Hooks {
                         }
                         return;
                     }
+                    Utils::SetAnimationInfo(a_actor, false, false);
+                    Utils::SetAnimationInfo(a_actor, true, false);
                 } else {
                     if (a_actor->IsPlayerRef()) {
                         if (left && left_empty) {
-                            if (Utils::IsAlreadyTracked(a_actor)) {
-                                Utils::RemoveEvent(a_actor);
+                            if (!Utils::IsAlreadyTracked(a_actor)) {
+                                Utils::SetAnimationInfo(a_actor, left, true);
+                                auto eventSink = GetOrCreateEventSink(a_actor);
+                                Utils::justEquiped_act = a_actor;
+                                Utils::justEquiped_obj = a_object;
+                                Utils::justEquiped_time = std::chrono::steady_clock::now();
+                                return func(a_manager, a_actor, a_object, a_unk);
                             }
+                        }
+                    }
+                    if (!left && right_empty) {
+                        if (!Utils::IsAlreadyTracked(a_actor)) {
                             Utils::SetAnimationInfo(a_actor, left, true);
+                            auto eventSink = GetOrCreateEventSink(a_actor);
                             Utils::justEquiped_act = a_actor;
                             Utils::justEquiped_obj = a_object;
                             Utils::justEquiped_time = std::chrono::steady_clock::now();
                             return func(a_manager, a_actor, a_object, a_unk);
                         }
                     }
-                    if (!left && right_empty) {
-                        if (Utils::IsAlreadyTracked(a_actor)) {
-                            Utils::RemoveEvent(a_actor);
-                        }
-                        Utils::SetAnimationInfo(a_actor, left, true);
-                        Utils::justEquiped_act = a_actor;
-                        Utils::justEquiped_obj = a_object;
-                        Utils::justEquiped_time = std::chrono::steady_clock::now();
-                        return func(a_manager, a_actor, a_object, a_unk);
-                    }
                 }
 
+                auto currentRight = a_actor->GetEquippedObject(false);
+                if (Utils::IsTwoHanded(currentRight)) {
+                    Utils::SetAnimationInfo(a_actor, false, false);
+                    Utils::SetAnimationInfo(a_actor, true, false);
+                } else {
+                    Utils::SetAnimationInfo(a_actor, left, false);
+                }
                 auto eventSink = GetOrCreateEventSink(a_actor);
                 Utils::UpdateEventInfo(a_actor, a_object, left, false, eventSink);
-                Utils::SetAnimationInfo(a_actor, left, false);
 
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
@@ -202,7 +209,6 @@ namespace Hooks {
         logger::debug("[Equip Spell Hook]:[{} - {:08X}] {} {}", a_actor->GetName(), a_actor->GetFormID(),
                       a_spell->GetName(), *a_slot == Utils::left_hand_slot ? "left" : "right");
 
-
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {
             if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
                 logger::debug("[Equip Spell Hook]:[{} - {:08X}] Weapon State {} | {}tracked", a_actor->GetName(),
@@ -214,22 +220,30 @@ namespace Hooks {
                 bool left_empty = hands_empty.second;
                 bool right_empty = hands_empty.first;
 
-                if (*a_slot == Utils::left_hand_slot && left_empty) {
-                    if (Utils::IsAlreadyTracked(a_actor)) {
-                        Utils::RemoveEvent(a_actor);
+                if (Utils::IsTwoHanded(a_spell)) {
+                    if (left_empty && right_empty) {
+                        if (!Utils::IsAlreadyTracked(a_actor)) {
+                            return func(a_manager, a_actor, a_spell, a_slot);
+                        }
                     }
-                    return func(a_manager, a_actor, a_spell, a_slot);
-                }
-                if ((*a_slot == Utils::right_hand_slot || !*a_slot) && right_empty) {
-                    if (Utils::IsAlreadyTracked(a_actor)) {
-                        Utils::RemoveEvent(a_actor);
+                    Utils::SetAnimationInfo(a_actor, true, false);
+                    Utils::SetAnimationInfo(a_actor, false, false);
+                } else {
+                    if (*a_slot == Utils::left_hand_slot && left_empty) {
+                        if (!Utils::IsAlreadyTracked(a_actor)) {
+                            return func(a_manager, a_actor, a_spell, a_slot);
+                        }
                     }
-                    return func(a_manager, a_actor, a_spell, a_slot);
+                    if ((*a_slot == Utils::right_hand_slot || !*a_slot) && right_empty) {
+                        if (!Utils::IsAlreadyTracked(a_actor)) {
+                            return func(a_manager, a_actor, a_spell, a_slot);
+                        }
+                    }
+                    Utils::SetAnimationInfo(a_actor, *a_slot == Utils::left_hand_slot, false);
                 }
 
                 auto eventSink = GetOrCreateEventSink(a_actor);
                 Utils::UpdateEventInfo(a_actor, a_spell, *a_slot == Utils::left_hand_slot, false, eventSink);
-                Utils::SetAnimationInfo(a_actor, *a_slot == Utils::left_hand_slot, false);
 
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
@@ -269,9 +283,6 @@ namespace Hooks {
 
         if (switchingNotAllowed || isDead || isRemoveUnequip || isJustEquip || notInHand ||
             (isWeapon && (isUnarmedWeapon || isBoundWeapon)) || isWhitelisted) {
-            if (Utils::IsAlreadyTracked(a_actor)) {
-                Utils::RemoveEvent(a_actor);
-            }
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
@@ -315,11 +326,28 @@ namespace Hooks {
 
 
                 bool left = false;
-
+                bool hand_switch = false;
                 if (a_actor->IsPlayerRef()) {
                     if (Utils::player_equip_left == true) {
                         left = true;
                         Utils::player_equip_left = false;
+                    }
+                    if (!Utils::IsTwoHanded(a_object) && a_object == a_actor->GetEquippedObject(!left)) {
+                        RE::TESObjectREFR::Count count = 0;
+                        if (a_object->IsWeapon()) {
+                            RE::TESObjectREFR::InventoryItemMap inv = a_actor->GetInventory();
+                            auto it_inv = inv.find(a_object);
+                            if (it_inv != inv.end()) {
+                                count = it_inv->second.first;
+                            } else {
+                                logger::error("[Equip Hook]:[{} - {:08X}] {} not found in inventory.",
+                                              a_actor->GetName(), a_actor->GetFormID(), a_object->GetName());
+                            }
+                        }
+                        if (count == 1) {  // swithing from one hand to another
+                            Utils::SetAnimationInfoHandSwitch(a_actor);
+                            hand_switch = true;
+                        }
                     }
                 } else {
                     if (a_object == a_actor->GetEquippedObject(true)) {
@@ -331,16 +359,25 @@ namespace Hooks {
                     left = true;
                 }
 
+                if (Utils::IsTwoHanded(a_object)) {
+                    Utils::SetAnimationInfo(a_actor, false, false);
+                    Utils::SetAnimationInfo(a_actor, true, false);
+                } else {
+                    Utils::SetAnimationInfo(a_actor, left, false);
+                }
                 auto eventSink = GetOrCreateEventSink(a_actor);
-                Utils::UpdateEventInfo(a_actor, a_object, left, true, eventSink);
-                Utils::SetAnimationInfo(a_actor, left, false);
+                if (hand_switch) {
+                    Utils::UpdateEventInfo(a_actor, a_object, !left, true, eventSink);
+                    Utils::UpdateEventInfo(a_actor, a_object, left, false, eventSink);
+                } else {
+                    Utils::UpdateEventInfo(a_actor, a_object, left, true, eventSink);
+                }
 
                 a_actor->DrawWeaponMagicHands(false);
                 a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
                 return;
             }
         }
-
         return func(a_manager, a_actor, a_object, a_unk);
     }
 

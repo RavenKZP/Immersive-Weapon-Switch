@@ -56,7 +56,8 @@ namespace Utils {
     void RemoveInventoryInfo(T* obj);
 
     // OAR Animations
-    void SetAnimationInfo(RE::Actor* act, bool left, bool equip = true);
+    void SetAnimationInfo(RE::Actor* act, bool left, bool equip);
+    void SetAnimationInfoHandSwitch(RE::Actor* act);
     void ProceedAnimationInfo(RE::Actor* act);
     void RemoveAnimationInfo(RE::Actor* act);
 
@@ -72,11 +73,6 @@ namespace Utils {
     inline RE::BGSKeyword* unequip_keyword_right;
     inline RE::BGSKeyword* equip_keyword_left;
     inline RE::BGSKeyword* equip_keyword_right;
-
-    inline RE::SpellItem* unequip_left;
-    inline RE::SpellItem* unequip_right;
-    inline RE::SpellItem* equip_left;
-    inline RE::SpellItem* equip_right;
 
     inline std::shared_mutex actor_equip_event_mutex;
     inline std::unordered_map<RE::Actor*, EquipEvent> actor_equip_event;
