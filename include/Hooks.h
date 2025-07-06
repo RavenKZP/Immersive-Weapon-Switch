@@ -5,10 +5,19 @@ namespace Hooks {
     void Install();
     void InstallReadOnly();
 
-    struct EquipObjectHook {
+    struct GenericEquipObjectHook {
         static void InstallHook(SKSE::Trampoline& a_trampoline);
         static void thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
                           std::uint64_t a_unk);
+        static inline REL::Relocation<decltype(thunk)> func;
+    };
+
+    struct EquipObjectHook {
+        static void InstallHook(SKSE::Trampoline& a_trampoline);
+        static void thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+                          RE::ExtraDataList* a_extraData = nullptr, std::uint32_t a_count = 1,
+                          const RE::BGSEquipSlot* a_slot = nullptr, bool a_queueEquip = true, bool a_forceEquip = false,
+                          bool a_playSounds = true, bool a_applyNow = false);
         static inline REL::Relocation<decltype(thunk)> func;
     };
 

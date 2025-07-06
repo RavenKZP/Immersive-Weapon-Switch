@@ -11,8 +11,9 @@ namespace Hooks {
         constexpr size_t size_per_hook = 14;
         auto& trampoline = SKSE::GetTrampoline();
 
-        SKSE::AllocTrampoline(size_per_hook * 3);
+        SKSE::AllocTrampoline(size_per_hook * 4);
 
+        GenericEquipObjectHook::InstallHook(trampoline);
         EquipObjectHook::InstallHook(trampoline);
         EquipSpellHook::InstallHook(trampoline);
         UnEquipObjectHook::InstallHook(trampoline);
@@ -35,9 +36,18 @@ namespace Hooks {
 
     }
 
-    void EquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
+    void GenericEquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
         // All Calls
         func = a_trampoline.write_call<5>(REL::RelocationID(37938, 38894).address() + REL::Relocate(0xE5, 0x170), thunk);
+    }
+
+    void EquipObjectHook::InstallHook(SKSE::Trampoline& a_trampoline) {
+        // PC
+        func = a_trampoline.write_call<5>(REL::RelocationID(37951, 38907).address() + REL::Relocate(0x2e0, 0x2e0), thunk);
+        // NPC
+        func = a_trampoline.write_call<5>(REL::RelocationID(46955, 48124).address() + REL::Relocate(0x1a5, 0x1d6), thunk);
+        // Brawl (Papyrus?)
+        func = a_trampoline.write_call<5>(REL::RelocationID(53861, 54661).address() + REL::Relocate(0x14e, 0x14e), thunk);
     }
 
     void EquipSpellHook::InstallHook(SKSE::Trampoline& a_trampoline) {
@@ -65,7 +75,8 @@ namespace Hooks {
         logger::debug("Installed RemoveItemHook<{}>", typeid(T).name());
     }
 
-    void EquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+    void GenericEquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor,
+                                       RE::TESBoundObject* a_object,
                                 std::uint64_t a_unk) {
 
         if (!a_actor || !a_object || !a_manager || !Settings::Mod_Active) {
@@ -79,7 +90,7 @@ namespace Hooks {
             if (it_inv != inv.end()) {
                 count = it_inv->second.first;
             } else {
-                logger::error("[Equip Hook]:[{} - {:08X}] {} not found in inventory.", a_actor->GetName(),
+                logger::error("[Generic Equip Hook]:[{} - {:08X}] {} not found in inventory.", a_actor->GetName(),
                               a_actor->GetFormID(), a_object->GetName());
             }
         }
@@ -93,7 +104,7 @@ namespace Hooks {
         const bool notInHand = !Utils::IsInHand(a_object);
         const bool alreadyEquiped = count == 1 && isWorn;
 
-        logger::debug("[Equip Hook]:[{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(), a_actor->GetFormID(),
+        logger::debug("[Generic Equip Hook]:[{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(), a_actor->GetFormID(),
                       pcSwitchDisabled, npcSwitchDisabled, isDead, notInHand, alreadyEquiped);
         if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped) {
             Utils::justEquiped_act = a_actor;
@@ -102,11 +113,11 @@ namespace Hooks {
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
-        logger::debug("[Equip Hook]:[{} - {:08X}] {}", a_actor->GetName(), a_actor->GetFormID(), a_object->GetName());
+        logger::debug("[Generic Equip Hook]:[{} - {:08X}] {}", a_actor->GetName(), a_actor->GetFormID(), a_object->GetName());
 
         if (const RE::ActorState* actorState = a_actor->AsActorState()) {
             if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
-                logger::debug("[Equip Hook]:[{} - {:08X}] Weapon State {} | {}tracked", a_actor->GetName(),
+                logger::debug("[Generic Equip Hook]:[{} - {:08X}] Weapon State {} | {}tracked", a_actor->GetName(),
                               a_actor->GetFormID(), Helper::WeaponStateToString(actorState->GetWeaponState()),
                               Utils::IsAlreadyTracked(a_actor) ? "" : "NOT");
 
@@ -189,6 +200,141 @@ namespace Hooks {
         Utils::justEquiped_obj = a_object;
         Utils::justEquiped_time = std::chrono::steady_clock::now();
         return func(a_manager, a_actor, a_object, a_unk);
+    }
+
+    void EquipObjectHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::TESBoundObject* a_object,
+                                RE::ExtraDataList* a_extraData, std::uint32_t a_count,
+                                const RE::BGSEquipSlot* a_slot, bool a_queueEquip,
+                                bool a_forceEquip, bool a_playSounds, bool a_applyNow) {
+        if (!a_actor || !a_object || !a_manager || !Settings::Mod_Active) {
+            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                        a_playSounds, a_applyNow);
+        }
+
+        RE::TESObjectREFR::Count count = 0;
+        if (a_object->IsWeapon()) {
+            RE::TESObjectREFR::InventoryItemMap inv = a_actor->GetInventory();
+            auto it_inv = inv.find(a_object);
+            if (it_inv != inv.end()) {
+                count = it_inv->second.first;
+            } else {
+                logger::error("[Equip Hook]:[{} - {:08X}] {} not found in inventory.", a_actor->GetName(),
+                              a_actor->GetFormID(), a_object->GetName());
+            }
+        }
+
+        const bool isWorn =
+            a_object == a_actor->GetEquippedObject(false) || a_object == a_actor->GetEquippedObject(true);
+        const bool isPlayer = a_actor->IsPlayerRef();
+        const bool pcSwitchDisabled = !Settings::PC_Switch && isPlayer;
+        const bool npcSwitchDisabled = !Settings::NPC_Switch && !isPlayer;
+        const bool isDead = a_actor->IsDead();
+        const bool notInHand = !Utils::IsInHand(a_object);
+        const bool alreadyEquiped = count == 1 && isWorn;
+
+        logger::debug("[Equip Hook]:[{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(), a_actor->GetFormID(),
+                      pcSwitchDisabled, npcSwitchDisabled, isDead, notInHand, alreadyEquiped);
+        if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped) {
+            Utils::justEquiped_act = a_actor;
+            Utils::justEquiped_obj = a_object;
+            Utils::justEquiped_time = std::chrono::steady_clock::now();
+            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                        a_playSounds, a_applyNow);
+        }
+
+        logger::debug("[Equip Hook]:[{} - {:08X}] {}", a_actor->GetName(), a_actor->GetFormID(), a_object->GetName());
+
+        if (const RE::ActorState* actorState = a_actor->AsActorState()) {
+            if (actorState->IsWeaponDrawn() || Utils::IsAlreadyTracked(a_actor)) {
+                logger::debug("[Equip Hook]:[{} - {:08X}] Weapon State {} | {}tracked", a_actor->GetName(),
+                              a_actor->GetFormID(), Helper::WeaponStateToString(actorState->GetWeaponState()),
+                              Utils::IsAlreadyTracked(a_actor) ? "" : "NOT");
+
+                // if equip to empty hand
+                std::pair<bool, bool> hands_empty = Utils::GetIfHandsEmpty(a_actor);
+                bool left_empty = hands_empty.second;
+                bool right_empty = hands_empty.first;
+
+                bool left = false;
+                if (a_actor->IsPlayerRef()) {
+                    if (Utils::player_equip_left == true) {
+                        left = true;
+                        Utils::player_equip_left = false;
+                    }
+                }
+                if (a_slot && a_slot->GetFormID() == Utils::EquipSlots::Left) {
+                    left = true;
+                }
+
+                if (Utils::IsLeftOnly(a_object)) {
+                    left = true;
+                }
+
+                if (Utils::IsTwoHanded(a_object)) {
+                    if (right_empty && left_empty) {
+                        if (!Utils::IsAlreadyTracked(a_actor)) {
+                            Utils::justEquiped_act = a_actor;
+                            Utils::justEquiped_obj = a_object;
+                            Utils::justEquiped_time = std::chrono::steady_clock::now();
+                            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
+                                        a_forceEquip, a_playSounds, a_applyNow);
+                        }
+                    } else if (a_object->IsWeapon() && a_object->As<RE::TESObjectWEAP>()->IsBound()) {
+                        if (a_actor->IsPlayerRef()) {
+                            RE::DebugNotification("You can't summon this weapon - you need both hands free!",
+                                                  "UIMenuCancel");
+                        }
+                        return;
+                    }
+                    Utils::SetAnimationInfo(a_actor, false, false);
+                    Utils::SetAnimationInfo(a_actor, true, false);
+                } else {
+                    if (a_actor->IsPlayerRef()) {
+                        if (left && left_empty) {
+                            if (!Utils::IsAlreadyTracked(a_actor)) {
+                                Utils::SetAnimationInfo(a_actor, left, true);
+                                auto eventSink = GetOrCreateEventSink(a_actor);
+                                Utils::justEquiped_act = a_actor;
+                                Utils::justEquiped_obj = a_object;
+                                Utils::justEquiped_time = std::chrono::steady_clock::now();
+                                return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
+                                            a_forceEquip, a_playSounds, a_applyNow);
+                            }
+                        }
+                    }
+                    if (!left && right_empty) {
+                        if (!Utils::IsAlreadyTracked(a_actor)) {
+                            Utils::SetAnimationInfo(a_actor, left, true);
+                            auto eventSink = GetOrCreateEventSink(a_actor);
+                            Utils::justEquiped_act = a_actor;
+                            Utils::justEquiped_obj = a_object;
+                            Utils::justEquiped_time = std::chrono::steady_clock::now();
+                            return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
+                                        a_forceEquip, a_playSounds, a_applyNow);
+                        }
+                    }
+                }
+
+                auto currentRight = a_actor->GetEquippedObject(false);
+                if (Utils::IsTwoHanded(currentRight)) {
+                    Utils::SetAnimationInfo(a_actor, false, false);
+                    Utils::SetAnimationInfo(a_actor, true, false);
+                } else {
+                    Utils::SetAnimationInfo(a_actor, left, false);
+                }
+                auto eventSink = GetOrCreateEventSink(a_actor);
+                Utils::UpdateEventInfo(a_actor, a_object, left, false, eventSink);
+
+                a_actor->DrawWeaponMagicHands(false);
+                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                return;
+            }
+        }
+        Utils::justEquiped_act = a_actor;
+        Utils::justEquiped_obj = a_object;
+        Utils::justEquiped_time = std::chrono::steady_clock::now();
+        return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
+                    a_playSounds, a_applyNow);
     }
 
     void EquipSpellHook::thunk(RE::ActorEquipManager* a_manager, RE::Actor* a_actor, RE::SpellItem* a_spell,

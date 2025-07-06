@@ -54,3 +54,30 @@ void RemoveEventSink(const RE::Actor* a_actor, AnimationEventSink* a_eventSink) 
     logger::debug("[RemoveEventSink]:[{} - {:08X}]", a_actor->GetName(), a_actor->GetFormID());
     a_actor->RemoveAnimationGraphEventSink(a_eventSink);
 }
+
+
+// WIP - just play animations instead of calling full equip/sheathe
+bool SendAnimationEvent(RE::Actor* a_actor, const char* AnimationString) {
+    if (const auto animGraphHolder = static_cast<RE::IAnimationGraphManagerHolder*>(a_actor)) {
+        if (animGraphHolder->NotifyAnimationGraph(AnimationString)) {
+            logger::trace("Sent animation event: '{}' Actor: '{}'", AnimationString, a_actor->GetName());
+            return true;
+        }
+        logger::warn("Failed to send animation event: '{}' Actor: '{}'", AnimationString, a_actor->GetName());
+        return false;
+    }
+    logger::error("Failed to get animGraphHolder for Actor: '{}'", a_actor->GetName());
+    return false;
+}
+
+void PlayDrawAnimation(RE::Actor* a_actor) {
+    if (!a_actor) {
+        return;
+    }
+    logger::debug("[PlayDrawAnimation]:[{} - {:08X}]", a_actor->GetName(), a_actor->GetFormID());
+    const char* animationName = "weapSoloEquip";
+    SendAnimationEvent(a_actor, animationName);
+}
+
+
+void PlaySheathleAnimation(RE::Actor* a_actor) {}
