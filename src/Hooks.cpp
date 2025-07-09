@@ -191,8 +191,7 @@ namespace Hooks {
                 auto eventSink = GetOrCreateEventSink(a_actor);
                 Utils::UpdateEventInfo(a_actor, a_object, left, false, eventSink);
 
-                a_actor->DrawWeaponMagicHands(false);
-                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                FakeDrawWeaponMagicHands(a_actor, false);
                 return;
             }
         }
@@ -325,8 +324,7 @@ namespace Hooks {
                 auto eventSink = GetOrCreateEventSink(a_actor);
                 Utils::UpdateEventInfo(a_actor, a_object, left, false, eventSink);
 
-                a_actor->DrawWeaponMagicHands(false);
-                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                FakeDrawWeaponMagicHands(a_actor, false);
                 return;
             }
         }
@@ -391,8 +389,7 @@ namespace Hooks {
                 auto eventSink = GetOrCreateEventSink(a_actor);
                 Utils::UpdateEventInfo(a_actor, a_spell, *a_slot == Utils::left_hand_slot, false, eventSink);
 
-                a_actor->DrawWeaponMagicHands(false);
-                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                FakeDrawWeaponMagicHands(a_actor, false);
                 return;
             }
         }
@@ -519,8 +516,7 @@ namespace Hooks {
                     Utils::UpdateEventInfo(a_actor, a_object, left, true, eventSink);
                 }
 
-                a_actor->DrawWeaponMagicHands(false);
-                a_actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToSheathe;
+                FakeDrawWeaponMagicHands(a_actor, false);
                 return;
             }
         }

@@ -55,29 +55,27 @@ void RemoveEventSink(const RE::Actor* a_actor, AnimationEventSink* a_eventSink) 
     a_actor->RemoveAnimationGraphEventSink(a_eventSink);
 }
 
-
-// WIP - just play animations instead of calling full equip/sheathe
 bool SendAnimationEvent(RE::Actor* a_actor, const char* AnimationString) {
     if (const auto animGraphHolder = static_cast<RE::IAnimationGraphManagerHolder*>(a_actor)) {
         if (animGraphHolder->NotifyAnimationGraph(AnimationString)) {
-            logger::trace("Sent animation event: '{}' Actor: '{}'", AnimationString, a_actor->GetName());
             return true;
         }
-        logger::warn("Failed to send animation event: '{}' Actor: '{}'", AnimationString, a_actor->GetName());
         return false;
     }
-    logger::error("Failed to get animGraphHolder for Actor: '{}'", a_actor->GetName());
     return false;
 }
 
-void PlayDrawAnimation(RE::Actor* a_actor) {
+void FakeDrawWeaponMagicHands(RE::Actor* a_actor, bool equip) {
     if (!a_actor) {
         return;
     }
-    logger::debug("[PlayDrawAnimation]:[{} - {:08X}]", a_actor->GetName(), a_actor->GetFormID());
-    const char* animationName = "weapSoloEquip";
-    SendAnimationEvent(a_actor, animationName);
+    logger::debug("[FakeDrawWeaponMagicHands]:[{} - {:08X}] {}", a_actor->GetName(), a_actor->GetFormID(),
+                  equip ? "Equip" : "Sheathe");
+
+    if (SendAnimationEvent(a_actor, equip ? "WeapEquip" : "Unequip")) {
+
+    } else {
+        logger::error("[FakeDrawWeaponMagicHands]:[{} - {:08X}] Failed to send animation event", a_actor->GetName(),
+                      a_actor->GetFormID());
+    }
 }
-
-
-void PlaySheathleAnimation(RE::Actor* a_actor) {}

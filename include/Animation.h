@@ -8,3 +8,5 @@ struct AnimationEventSink final : RE::BSTEventSink<RE::BSAnimationGraphEvent> {
 
 AnimationEventSink* GetOrCreateEventSink(RE::Actor* actor);
 void RemoveEventSink(const RE::Actor* actor, AnimationEventSink* eventSink);
+
+void FakeDrawWeaponMagicHands(RE::Actor* actor, bool equip);

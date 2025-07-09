@@ -311,11 +311,6 @@ namespace Utils {
                                            false);
                 }
             }
-            RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
-
-            // No idea why this order matter, but it does
-            actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToDraw;
-            actor->DrawWeaponMagicHands(true);
         }
         if (eqEve.left) {
             actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kSheathed;
@@ -356,12 +351,10 @@ namespace Utils {
                     }
                 }
             }
-            RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
-
-            // No idea why this order matter, but it does
-            actor->AsActorState()->actorState2.weaponState = RE::WEAPON_STATE::kWantToDraw;
-            actor->DrawWeaponMagicHands(true);
         }
+        RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
+
+        FakeDrawWeaponMagicHands(actor, true);
     }
 
     bool IsInHand(RE::TESBoundObject* a_object) {
