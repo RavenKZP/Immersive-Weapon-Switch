@@ -14,7 +14,7 @@ RE::BSEventNotifyControl AnimationEventSink::ProcessEvent(const RE::BSAnimationG
         return RE::BSEventNotifyControl::kContinue;
     }
 
-    if (a_event->tag == "WeaponSheathe") {
+    if (a_event->tag == "WeaponSheathe" || a_event->tag == "IdleStop" || a_event->tag == "Unequip_OutMoving") {
         logger::debug("[AnimationEventSink]:[{} - {:08X}] {} Event", actor->GetName(), actor->GetFormID(),
                       std::string(a_event->tag));
 
@@ -33,6 +33,8 @@ RE::BSEventNotifyControl AnimationEventSink::ProcessEvent(const RE::BSAnimationG
         if (!Utils::IsAlreadyTracked(mutableActor)) {  // Remove only if ExecuteEvent was called
             Utils::RemoveAnimationInfo(mutableActor);
             RemoveEventSink(actor, this);
+        } else {
+            FakeDrawWeaponMagicHands(mutableActor, false);
         }
     }
     return RE::BSEventNotifyControl::kContinue;

@@ -352,9 +352,8 @@ namespace Utils {
                 }
             }
         }
+        actor->DrawWeaponMagicHands(true);
         RE::SendUIMessage::SendInventoryUpdateMessage(actor, nullptr);
-
-        FakeDrawWeaponMagicHands(actor, true);
     }
 
     bool IsInHand(RE::TESBoundObject* a_object) {

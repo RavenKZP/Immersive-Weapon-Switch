@@ -131,7 +131,6 @@ namespace Hooks {
                 if (a_actor->IsPlayerRef()) {
                     if (Utils::player_equip_left == true) {
                         left = true;
-                        Utils::player_equip_left = false;
                     }
                 }
 
@@ -258,7 +257,6 @@ namespace Hooks {
                 if (a_actor->IsPlayerRef()) {
                     if (Utils::player_equip_left == true) {
                         left = true;
-                        Utils::player_equip_left = false;
                     }
                 }
                 if (a_slot && a_slot->GetFormID() == Utils::EquipSlots::Left) {
@@ -473,7 +471,6 @@ namespace Hooks {
                 if (a_actor->IsPlayerRef()) {
                     if (Utils::player_equip_left == true) {
                         left = true;
-                        Utils::player_equip_left = false;
                     }
                     if (!Utils::IsTwoHanded(a_object) && a_object == a_actor->GetEquippedObject(!left)) {
                         RE::TESObjectREFR::Count count = 0;
