@@ -110,7 +110,7 @@ namespace Utils {
                     logger::debug("[UpdateEventInfo]:[{} - {:08X}] has {} of the {}.", act->GetName(), act->GetFormID(),
                                   count, object->GetName());
                 } else {
-                    logger::error("[UpdateEventInfo]:[{} - {:08X}] {} not found in inventory.", act->GetName(),
+                    logger::warn("[UpdateEventInfo]:[{} - {:08X}] {} not found in inventory.", act->GetName(),
                                   act->GetFormID(), object->GetName());
                     return;
                 }
@@ -228,10 +228,12 @@ namespace Utils {
     void RemoveEvent(RE::Actor* act) {
         std::unique_lock ulock(actor_equip_event_mutex);
         if (const auto it = actor_equip_event.find(act); it != actor_equip_event.end()) {
-            RemoveInventoryInfo(it->second.left);
-            RemoveInventoryInfo(it->second.right);
-            RemoveInventoryInfo(act->GetEquippedObject(false));
-            RemoveInventoryInfo(act->GetEquippedObject(true));
+            if (act->IsPlayerRef()) {
+                RemoveInventoryInfo(it->second.left);
+                RemoveInventoryInfo(it->second.right);
+                RemoveInventoryInfo(act->GetEquippedObject(false));
+                RemoveInventoryInfo(act->GetEquippedObject(true));
+            }
             actor_equip_event.erase(it);
         }
     }
@@ -252,7 +254,6 @@ namespace Utils {
         }
         for (auto* actor : to_remove) {
             RemoveEvent(actor);
-            RemoveAnimationInfo(actor);
         }
     }
 
@@ -360,7 +361,7 @@ namespace Utils {
         if (a_object == nullptr) {  // Empty hand
             return true;
         }
-        if (a_object == unarmed_weapon) {  // brawl
+        if (a_object == unarmed_weapon || a_object->GetName() == "") {  // brawl
             return true;
         }
         if (a_object->Is(RE::FormType::Weapon) || a_object->Is(RE::FormType::Light) ||
@@ -388,6 +389,9 @@ namespace Utils {
             res = true;
         }
         if (a_object->IsWeapon() && a_object->As<RE::TESObjectWEAP>()->IsBound()) {
+            res = true;
+        }
+        if (a_object->GetName() == "") {  // Unarmed weapon
             res = true;
         }
         return res;
@@ -478,7 +482,10 @@ namespace Utils {
             left_empty = true;
         } else if (actor_left_hand->IsWeapon() && actor_left_hand->As<RE::TESObjectWEAP>()->IsBound()) {
             left_empty = true;
+        } else if (actor_left_hand->GetName() == "") {
+            left_empty = true;  // Unarmed weapon
         }
+        
 
         if (!actor_right_hand) {
             right_empty = true;
@@ -486,6 +493,8 @@ namespace Utils {
             right_empty = true;
         } else if (actor_right_hand->IsWeapon() && actor_right_hand->As<RE::TESObjectWEAP>()->IsBound()) {
             right_empty = true;
+        } else if (actor_right_hand->GetName() == "") {
+            right_empty = true;  // Unarmed weapon
         }
 
         return std::make_pair(right_empty, left_empty);
@@ -642,4 +651,49 @@ namespace Utils {
         act->SetGraphVariableBool("bIWS_Switch", false);
     }
 
+    static void CleanupJustRemoved() {
+        const auto maxAge = std::chrono::milliseconds(50);
+        auto now = std::chrono::steady_clock::now();
+        while (!justRemoved.empty() && now - justRemoved.front().time > maxAge) {
+            justRemoved.pop_front();
+        }
+    }
+
+    void UpdateJustRemoved(JustRemoved jr) {
+        CleanupJustRemoved();
+        justRemoved.push_back(jr);
+    }
+
+    bool ContainsJustRemoved(RE::Actor* actor, RE::TESBoundObject* object) {
+        CleanupJustRemoved();
+        for (const auto& event : justRemoved) {
+            if (event.actor == actor && event.object == object) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static void CleanupJustEquiped() {
+        const auto maxAge = std::chrono::milliseconds(50);
+        auto now = std::chrono::steady_clock::now();
+        while (!justEquiped.empty() && now - justEquiped.front().time > maxAge) {
+            justEquiped.pop_front();
+        }
+    }
+    
+    void UpdateJustEquiped(JustEquiped je) {
+        CleanupJustEquiped();
+        justEquiped.push_back(je);
+    }
+
+    bool ContainsJustEquiped(RE::Actor* actor, RE::TESBoundObject* object) {
+        CleanupJustEquiped();
+        for (const auto& event : justEquiped) {
+            if (event.actor == actor && event.object == object) {
+                return true;
+            }
+        }
+        return false;
+    }
 }  // Utils

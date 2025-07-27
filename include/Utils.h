@@ -19,7 +19,19 @@ namespace Utils {
         RE::TESBoundObject* left = nullptr;
         bool unequip_right = false;
         bool unequip_left = false;
-        AnimationEventSink* eventSink;
+        AnimationEventSink* eventSink = nullptr;
+    };
+
+    struct JustRemoved {
+        RE::TESObjectREFR* actor;
+        RE::TESBoundObject* object;
+        std::chrono::steady_clock::time_point time;
+    };
+
+    struct JustEquiped {
+        RE::Actor* actor;
+        RE::TESBoundObject* object;
+        std::chrono::steady_clock::time_point time;
     };
 
     void InitGlobals();
@@ -27,7 +39,8 @@ namespace Utils {
     inline RE::Actor* ConstCastActor(const RE::Actor* act) { return const_cast<RE::Actor*>(act); };
 
     // Equip Event Related Functions
-    void UpdateEventInfo(RE::Actor* actID, RE::TESBoundObject* object, bool left, bool unequip, AnimationEventSink* evSink);
+    void UpdateEventInfo(RE::Actor* actID, RE::TESBoundObject* object, bool left, bool unequip,
+                         AnimationEventSink* evSink);
     bool IsAlreadyTracked(RE::Actor* actID);
     void RemoveEvent(RE::Actor* actID);
     void RemoveEvent(const RE::Actor* actID);
@@ -49,7 +62,7 @@ namespace Utils {
     // Returns pair for right and left hand containing if hand is empty
     std::pair<bool, bool> GetIfHandsEmpty(RE::Actor* act);
 
-    //I4 Icons
+    // I4 Icons
     template <typename T>
     void SetInventoryInfo(T* obj, bool left, bool unequip = false);
     template <typename T>
@@ -61,6 +74,10 @@ namespace Utils {
     void ProceedAnimationInfo(RE::Actor* act);
     void RemoveAnimationInfo(RE::Actor* act);
 
+    void UpdateJustRemoved(JustRemoved jr);
+    bool ContainsJustRemoved(RE::Actor* actor, RE::TESBoundObject* object);
+    void UpdateJustEquiped(JustEquiped je);
+    bool ContainsJustEquiped(RE::Actor* actor, RE::TESBoundObject* object);
 
     inline RE::BGSEquipSlot* right_hand_slot;
     inline RE::BGSEquipSlot* left_hand_slot;
@@ -79,13 +96,7 @@ namespace Utils {
 
     inline bool player_equip_left = false;
 
-    inline RE::TESObjectREFR* remove_act;
-    inline RE::TESBoundObject* remove_obj;
-    inline std::chrono::steady_clock::time_point remove_time;
-    
-    inline RE::Actor* justEquiped_act;
-    inline RE::TESBoundObject* justEquiped_obj;
-    inline std::chrono::steady_clock::time_point justEquiped_time;
-
+    inline std::deque<JustRemoved> justRemoved;
+    inline std::deque<JustEquiped> justEquiped;
 }
 

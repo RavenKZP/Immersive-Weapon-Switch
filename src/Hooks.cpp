@@ -90,7 +90,7 @@ namespace Hooks {
             if (it_inv != inv.end()) {
                 count = it_inv->second.first;
             } else {
-                logger::error("[Generic Equip Hook]:[{} - {:08X}] {} not found in inventory.", a_actor->GetName(),
+                logger::warn("[Generic Equip Hook]:[{} - {:08X}] {} not found in inventory.", a_actor->GetName(),
                               a_actor->GetFormID(), a_object->GetName());
             }
         }
@@ -104,12 +104,12 @@ namespace Hooks {
         const bool notInHand = !Utils::IsInHand(a_object);
         const bool alreadyEquiped = count == 1 && isWorn;
 
-        logger::debug("[Generic Equip Hook]:[{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(), a_actor->GetFormID(),
+        logger::debug("[Generic Equip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(),
+                      a_actor->GetFormID(), a_object->GetName(), a_object->GetFormID(),
                       pcSwitchDisabled, npcSwitchDisabled, isDead, notInHand, alreadyEquiped);
         if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped) {
-            Utils::justEquiped_act = a_actor;
-            Utils::justEquiped_obj = a_object;
-            Utils::justEquiped_time = std::chrono::steady_clock::now();
+            Utils::UpdateJustEquiped(Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
+
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
@@ -141,9 +141,8 @@ namespace Hooks {
                 if (Utils::IsTwoHanded(a_object)) {
                     if (right_empty && left_empty) {
                         if (!Utils::IsAlreadyTracked(a_actor)) {
-                            Utils::justEquiped_act = a_actor;
-                            Utils::justEquiped_obj = a_object;
-                            Utils::justEquiped_time = std::chrono::steady_clock::now();
+                            Utils::UpdateJustEquiped(
+                                Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                             return func(a_manager, a_actor, a_object, a_unk);
                         }
                     } else if (a_object->IsWeapon() && a_object->As<RE::TESObjectWEAP>()->IsBound()) {
@@ -161,9 +160,8 @@ namespace Hooks {
                             if (!Utils::IsAlreadyTracked(a_actor)) {
                                 Utils::SetAnimationInfo(a_actor, left, true);
                                 auto eventSink = GetOrCreateEventSink(a_actor);
-                                Utils::justEquiped_act = a_actor;
-                                Utils::justEquiped_obj = a_object;
-                                Utils::justEquiped_time = std::chrono::steady_clock::now();
+                                Utils::UpdateJustEquiped(
+                                    Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                                 return func(a_manager, a_actor, a_object, a_unk);
                             }
                         }
@@ -172,9 +170,8 @@ namespace Hooks {
                         if (!Utils::IsAlreadyTracked(a_actor)) {
                             Utils::SetAnimationInfo(a_actor, left, true);
                             auto eventSink = GetOrCreateEventSink(a_actor);
-                            Utils::justEquiped_act = a_actor;
-                            Utils::justEquiped_obj = a_object;
-                            Utils::justEquiped_time = std::chrono::steady_clock::now();
+                            Utils::UpdateJustEquiped(
+                                Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                             return func(a_manager, a_actor, a_object, a_unk);
                         }
                     }
@@ -194,9 +191,7 @@ namespace Hooks {
                 return;
             }
         }
-        Utils::justEquiped_act = a_actor;
-        Utils::justEquiped_obj = a_object;
-        Utils::justEquiped_time = std::chrono::steady_clock::now();
+        Utils::UpdateJustEquiped(Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
         return func(a_manager, a_actor, a_object, a_unk);
     }
 
@@ -216,7 +211,7 @@ namespace Hooks {
             if (it_inv != inv.end()) {
                 count = it_inv->second.first;
             } else {
-                logger::error("[Equip Hook]:[{} - {:08X}] {} not found in inventory.", a_actor->GetName(),
+                logger::warn("[Equip Hook]:[{} - {:08X}] {} not found in inventory.", a_actor->GetName(),
                               a_actor->GetFormID(), a_object->GetName());
             }
         }
@@ -230,12 +225,11 @@ namespace Hooks {
         const bool notInHand = !Utils::IsInHand(a_object);
         const bool alreadyEquiped = count == 1 && isWorn;
 
-        logger::debug("[Equip Hook]:[{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(), a_actor->GetFormID(),
-                      pcSwitchDisabled, npcSwitchDisabled, isDead, notInHand, alreadyEquiped);
+        logger::debug("[Equip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(),
+                      a_actor->GetFormID(), a_object->GetName(), a_object->GetFormID(), pcSwitchDisabled,
+                      npcSwitchDisabled, isDead, notInHand, alreadyEquiped);
         if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped) {
-            Utils::justEquiped_act = a_actor;
-            Utils::justEquiped_obj = a_object;
-            Utils::justEquiped_time = std::chrono::steady_clock::now();
+            Utils::UpdateJustEquiped(Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                         a_playSounds, a_applyNow);
         }
@@ -270,9 +264,8 @@ namespace Hooks {
                 if (Utils::IsTwoHanded(a_object)) {
                     if (right_empty && left_empty) {
                         if (!Utils::IsAlreadyTracked(a_actor)) {
-                            Utils::justEquiped_act = a_actor;
-                            Utils::justEquiped_obj = a_object;
-                            Utils::justEquiped_time = std::chrono::steady_clock::now();
+                            Utils::UpdateJustEquiped(
+                                Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
                                         a_forceEquip, a_playSounds, a_applyNow);
                         }
@@ -291,9 +284,8 @@ namespace Hooks {
                             if (!Utils::IsAlreadyTracked(a_actor)) {
                                 Utils::SetAnimationInfo(a_actor, left, true);
                                 auto eventSink = GetOrCreateEventSink(a_actor);
-                                Utils::justEquiped_act = a_actor;
-                                Utils::justEquiped_obj = a_object;
-                                Utils::justEquiped_time = std::chrono::steady_clock::now();
+                                Utils::UpdateJustEquiped(
+                                    Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                                 return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
                                             a_forceEquip, a_playSounds, a_applyNow);
                             }
@@ -303,9 +295,8 @@ namespace Hooks {
                         if (!Utils::IsAlreadyTracked(a_actor)) {
                             Utils::SetAnimationInfo(a_actor, left, true);
                             auto eventSink = GetOrCreateEventSink(a_actor);
-                            Utils::justEquiped_act = a_actor;
-                            Utils::justEquiped_obj = a_object;
-                            Utils::justEquiped_time = std::chrono::steady_clock::now();
+                            Utils::UpdateJustEquiped(
+                                Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
                                         a_forceEquip, a_playSounds, a_applyNow);
                         }
@@ -326,9 +317,7 @@ namespace Hooks {
                 return;
             }
         }
-        Utils::justEquiped_act = a_actor;
-        Utils::justEquiped_obj = a_object;
-        Utils::justEquiped_time = std::chrono::steady_clock::now();
+        Utils::UpdateJustEquiped(Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
         return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                     a_playSounds, a_applyNow);
     }
@@ -404,12 +393,8 @@ namespace Hooks {
 
         const bool isPlayer = a_actor->IsPlayerRef();
         const bool isDead = a_actor->IsDead();
-        const bool removeTreshold =
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - Utils::remove_time).count() < 50;
-        const bool justEquipTreshold =
-            std::chrono::duration_cast<std::chrono::milliseconds>(now - Utils::justEquiped_time).count() < 50;
-        const bool isRemoveUnequip = (Utils::remove_obj == a_object && Utils::remove_act == a_actor && removeTreshold);
-        const bool isJustEquip = (Utils::justEquiped_obj == a_object && Utils::justEquiped_act == a_actor && justEquipTreshold);
+        const bool isRemoveUnequip = Utils::ContainsJustRemoved(a_actor, a_object);
+        const bool isJustEquip = Utils::ContainsJustEquiped(a_actor, a_object);
         const bool notInHand = !Utils::IsInHand(a_object);
         const bool isWeapon = a_object->IsWeapon();
         const auto weap = a_object->As<RE::TESObjectWEAP>();
@@ -418,12 +403,18 @@ namespace Hooks {
         const bool isWhitelisted = Utils::IsWhitelistUnequip(a_object);
         const bool switchingNotAllowed = (!Settings::PC_Switch && isPlayer) || (!Settings::NPC_Switch && !isPlayer);
 
-        logger::debug("[UnEquip Hook]:[{} - {:08X}] Pass flags {} {} {} {} {} {}", a_actor->GetName(),
-                      a_actor->GetFormID(), switchingNotAllowed, isDead, isRemoveUnequip, isJustEquip,
-                      (isWeapon && (isUnarmedWeapon || isBoundWeapon)), isWhitelisted);
+        logger::debug("[UnEquip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {} {}", a_actor->GetName(),
+                      a_actor->GetFormID(), a_object->GetName(), a_object->GetFormID(), switchingNotAllowed, isDead,
+                      isRemoveUnequip, isJustEquip, (isWeapon && (isUnarmedWeapon || isBoundWeapon)), isWhitelisted);
 
-        if (switchingNotAllowed || isDead || isRemoveUnequip || isJustEquip || notInHand ||
+        if (switchingNotAllowed || isDead || isJustEquip || notInHand ||
             (isWeapon && (isUnarmedWeapon || isBoundWeapon)) || isWhitelisted) {
+            return func(a_manager, a_actor, a_object, a_unk);
+        }
+        if (isRemoveUnequip) {
+            if (Utils::IsAlreadyTracked(a_actor)) {
+                Utils::RemoveEvent(a_actor);
+            }
             return func(a_manager, a_actor, a_object, a_unk);
         }
 
@@ -480,7 +471,7 @@ namespace Hooks {
                             if (it_inv != inv.end()) {
                                 count = it_inv->second.first;
                             } else {
-                                logger::error("[Equip Hook]:[{} - {:08X}] {} not found in inventory.",
+                                logger::warn("[Equip Hook]:[{} - {:08X}] {} not found in inventory.",
                                               a_actor->GetName(), a_actor->GetFormID(), a_object->GetName());
                             }
                         }
@@ -534,9 +525,8 @@ namespace Hooks {
         logger::debug("[RemoveItemHook<{}>] [{} - {:08X}] removing {}", typeid(T).name(), a_this->GetName(),
                       a_this->GetFormID(), a_item->GetName());
 
-        Utils::remove_act = a_this;
-        Utils::remove_obj = a_item;
-        Utils::remove_time = std::chrono::steady_clock::now();
+
+        Utils::UpdateJustRemoved(Utils::JustRemoved{a_this, a_item, std::chrono::steady_clock::now()});
 
         return func(a_this, a_hidden_return_argument, a_item, a_count, a_reason, a_extra_list, a_move_to_ref,
                     a_drop_loc, a_rotate);

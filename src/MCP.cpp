@@ -32,27 +32,6 @@ namespace MCP {
         ImGui::Checkbox("NPC Active", &Settings::NPC_Switch);
         ImGui::Checkbox("PC Active", &Settings::PC_Switch);
 
-#ifndef NDEBUG
-
-        auto player = RE::PlayerCharacter::GetSingleton();
-        bool bIWS_EquipLeft, bIWS_EquipRight, bIWS_UnequipLeft, bIWS_UnequipRight;
-
-        player->GetGraphVariableBool("bIWS_EquipLeft", bIWS_EquipLeft);
-        player->GetGraphVariableBool("bIWS_UnequipLeft", bIWS_UnequipLeft);
-        player->GetGraphVariableBool("bIWS_EquipRight", bIWS_EquipRight);
-        player->GetGraphVariableBool("bIWS_UnequipRight", bIWS_UnequipRight);
-
-        ImGui::Text("bIWS_EquipRight ");
-        ImGui::Text(bIWS_EquipRight ? "True" : "False");
-        ImGui::Text("bIWS_EquipLeft ");
-        ImGui::Text(bIWS_EquipLeft ? "True" : "False");
-        ImGui::Text("bIWS_UnequipRight ");
-        ImGui::Text(bIWS_UnequipRight ? "True" : "False");
-        ImGui::Text("bIWS_UnequipLeft ");
-        ImGui::Text(bIWS_UnequipLeft ? "True" : "False");
-
-#endif
-
         if (!Settings::Mod_Active) {
             Utils::ClearAllEvents();
         }
