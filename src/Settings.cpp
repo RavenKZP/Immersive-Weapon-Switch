@@ -1,6 +1,8 @@
 
 #include "Settings.h"
 
+#include <codecvt>
+
 namespace Settings {
 
     void LoadSettings() {
@@ -17,19 +19,20 @@ namespace Settings {
             PC_Switch = ini.GetBoolValue(L"Settings", L"PC_Switch");
             NPC_Switch = ini.GetBoolValue(L"Settings", L"NPC_Switch");
 
-            NPC_Drop_Weapons = ini.GetBoolValue(L"Settings", L"NPC_Drop_Weapons");
-            PC_Drop_Weapons = ini.GetBoolValue(L"Settings", L"PC_Drop_Weapons");
-            Followers_Drop_Weapons = ini.GetBoolValue(L"Settings", L"Followers_Drop_Weapons");
-
-            NPC_Health_Drop = ini.GetDoubleValue(L"Settings", L"NPC_Health_Drop");
-            PC_Health_Drop = ini.GetDoubleValue(L"Settings", L"NPC_Health_Drop");
-            Followers_Health_Drop = ini.GetDoubleValue(L"Settings", L"Followers_Health_Drop");
-
-
-            Hold_To_Drop = ini.GetBoolValue(L"Settings", L"Hold_To_Drop");
-            Hold_To_Unarmed = ini.GetBoolValue(L"Settings", L"Hold_To_Unarmed");
-            Held_Duration = ini.GetDoubleValue(L"Settings", L"Held_Duration");
-
+            const wchar_t* keywordList = ini.GetValue(L"RaceBlocklist", L"BlockedKeywords", L"");
+            std::wstring str = keywordList ? keywordList : L"";
+            std::wstringstream ss(str);
+            std::wstring token;
+            while (std::getline(ss, token, L',')) {
+                token.erase(0, token.find_first_not_of(L" \t"));
+                token.erase(token.find_last_not_of(L" \t") + 1);
+                if (!token.empty()) {
+                    using convert_type = std::codecvt_utf8<wchar_t>;
+                    std::wstring_convert<convert_type, wchar_t> converter;
+                    std::string converted_str = converter.to_bytes(token);
+                    blockedRaceSubstrings.emplace_back(converted_str);
+                }
+            }
 
             logger::info("Settings Loaded");
         }
@@ -44,19 +47,6 @@ namespace Settings {
         ini.SetBoolValue(L"Settings", L"PC_Switch", PC_Switch);
         ini.SetBoolValue(L"Settings", L"NPC_Switch", NPC_Switch);
 
-        ini.SetBoolValue(L"Settings", L"NPC_Drop_Weapons", NPC_Drop_Weapons);
-        ini.SetBoolValue(L"Settings", L"PC_Drop_Weapons", PC_Drop_Weapons);
-        ini.SetBoolValue(L"Settings", L"Followers_Drop_Weapons", Followers_Drop_Weapons);
-
-        ini.SetDoubleValue(L"Settings", L"NPC_Health_Drop", NPC_Health_Drop);
-        ini.SetDoubleValue(L"Settings", L"PC_Health_Drop", PC_Health_Drop);
-        ini.SetDoubleValue(L"Settings", L"Followers_Health_Drop", Followers_Health_Drop);
-
-        ini.SetBoolValue(L"Settings", L"Hold_To_Drop", Hold_To_Drop);
-        ini.SetBoolValue(L"Settings", L"Hold_To_Unarmed", Hold_To_Unarmed);
-        ini.SetDoubleValue(L"Settings", L"Held_Duration", Held_Duration);
-
-
         ini.SaveFile(setting_path);
 
         logger::info("[SaveSettings] Settings Saved");
@@ -64,17 +54,6 @@ namespace Settings {
 
     void Settings::ResetSettings() {
         Mod_Active = true;
-
-        NPC_Drop_Weapons = true;
-        PC_Drop_Weapons = false;
-        Followers_Drop_Weapons = false;
-        NPC_Health_Drop = 10.0f;
-        PC_Health_Drop = 10.0f;
-        Followers_Health_Drop = 10.0f;
-
-        Hold_To_Drop = true;
-        Hold_To_Unarmed = true;
-        Held_Duration = 0.7f;
 
         NPC_Switch = true;
         PC_Switch = true;

@@ -32,6 +32,11 @@ namespace MCP {
         ImGui::Checkbox("NPC Active", &Settings::NPC_Switch);
         ImGui::Checkbox("PC Active", &Settings::PC_Switch);
 
+        ImGui::Text("Blocked Races ");
+        for (const auto& keyword : Settings::blockedRaceSubstrings) {
+            ImGui::Text("%s", keyword);
+        }
+
         if (!Settings::Mod_Active) {
             Utils::ClearAllEvents();
         }

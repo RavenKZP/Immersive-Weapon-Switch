@@ -103,11 +103,15 @@ namespace Hooks {
         const bool isDead = a_actor->IsDead();
         const bool notInHand = !Utils::IsInHand(a_object);
         const bool alreadyEquiped = count == 1 && isWorn;
+        const bool isRaceBlocked = Utils::IsRaceBlocked(a_actor);
 
-        logger::debug("[Generic Equip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(),
+        logger::debug("[Generic Equip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {} {}", a_actor->GetName(),
                       a_actor->GetFormID(), a_object->GetName(), a_object->GetFormID(),
-                      pcSwitchDisabled, npcSwitchDisabled, isDead, notInHand, alreadyEquiped);
-        if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped) {
+                      pcSwitchDisabled, npcSwitchDisabled, isDead, notInHand, alreadyEquiped,
+                      isRaceBlocked);
+
+        if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped ||
+            isRaceBlocked) {
             Utils::UpdateJustEquiped(Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
 
             return func(a_manager, a_actor, a_object, a_unk);
@@ -158,8 +162,13 @@ namespace Hooks {
                     if (a_actor->IsPlayerRef()) {
                         if (left && left_empty) {
                             if (!Utils::IsAlreadyTracked(a_actor)) {
-                                Utils::SetAnimationInfo(a_actor, left, true);
-                                auto eventSink = GetOrCreateEventSink(a_actor);
+                                if (a_object->IsWeapon() && !a_object->As<RE::TESObjectWEAP>()->IsBound()) {
+                                    Utils::SetAnimationInfo(a_actor, left, true);
+                                    auto eventSink = GetOrCreateEventSink(a_actor);
+                                } else if (a_object->IsArmor() && !Utils::IsBoundArmor(a_object)) {
+                                    Utils::SetAnimationInfo(a_actor, left, true);
+                                    auto eventSink = GetOrCreateEventSink(a_actor);
+                                }
                                 Utils::UpdateJustEquiped(
                                     Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                                 return func(a_manager, a_actor, a_object, a_unk);
@@ -168,8 +177,10 @@ namespace Hooks {
                     }
                     if (!left && right_empty) {
                         if (!Utils::IsAlreadyTracked(a_actor)) {
-                            Utils::SetAnimationInfo(a_actor, left, true);
-                            auto eventSink = GetOrCreateEventSink(a_actor);
+                            if (a_object->IsWeapon() && !a_object->As<RE::TESObjectWEAP>()->IsBound()) {
+                                Utils::SetAnimationInfo(a_actor, left, true);
+                                auto eventSink = GetOrCreateEventSink(a_actor);
+                            }
                             Utils::UpdateJustEquiped(
                                 Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                             return func(a_manager, a_actor, a_object, a_unk);
@@ -224,11 +235,13 @@ namespace Hooks {
         const bool isDead = a_actor->IsDead();
         const bool notInHand = !Utils::IsInHand(a_object);
         const bool alreadyEquiped = count == 1 && isWorn;
+        const bool isRaceBlocked = Utils::IsRaceBlocked(a_actor);
 
-        logger::debug("[Equip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {}", a_actor->GetName(),
+        logger::debug("[Equip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {} {}", a_actor->GetName(),
                       a_actor->GetFormID(), a_object->GetName(), a_object->GetFormID(), pcSwitchDisabled,
-                      npcSwitchDisabled, isDead, notInHand, alreadyEquiped);
-        if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped) {
+                      npcSwitchDisabled, isDead, notInHand, alreadyEquiped, isRaceBlocked);
+
+        if (pcSwitchDisabled || npcSwitchDisabled || isDead || notInHand || alreadyEquiped || isRaceBlocked) {
             Utils::UpdateJustEquiped(Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip, a_forceEquip,
                         a_playSounds, a_applyNow);
@@ -282,8 +295,13 @@ namespace Hooks {
                     if (a_actor->IsPlayerRef()) {
                         if (left && left_empty) {
                             if (!Utils::IsAlreadyTracked(a_actor)) {
-                                Utils::SetAnimationInfo(a_actor, left, true);
-                                auto eventSink = GetOrCreateEventSink(a_actor);
+                                if (a_object->IsWeapon() && !a_object->As<RE::TESObjectWEAP>()->IsBound()) {
+                                    Utils::SetAnimationInfo(a_actor, left, true);
+                                    auto eventSink = GetOrCreateEventSink(a_actor);
+                                } else if (a_object->IsArmor() && !Utils::IsBoundArmor(a_object)) {
+                                    Utils::SetAnimationInfo(a_actor, left, true);
+                                    auto eventSink = GetOrCreateEventSink(a_actor);
+                                }
                                 Utils::UpdateJustEquiped(
                                     Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                                 return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
@@ -293,8 +311,10 @@ namespace Hooks {
                     }
                     if (!left && right_empty) {
                         if (!Utils::IsAlreadyTracked(a_actor)) {
-                            Utils::SetAnimationInfo(a_actor, left, true);
-                            auto eventSink = GetOrCreateEventSink(a_actor);
+                            if (a_object->IsWeapon() && !a_object->As<RE::TESObjectWEAP>()->IsBound()) {
+                                Utils::SetAnimationInfo(a_actor, left, true);
+                                auto eventSink = GetOrCreateEventSink(a_actor);
+                            }
                             Utils::UpdateJustEquiped(
                                 Utils::JustEquiped{a_actor, a_object, std::chrono::steady_clock::now()});
                             return func(a_manager, a_actor, a_object, a_extraData, a_count, a_slot, a_queueEquip,
@@ -335,6 +355,10 @@ namespace Hooks {
         // Check mod enabled for actor
         if ((!Settings::PC_Switch && a_actor->IsPlayerRef()) || (!Settings::NPC_Switch && !a_actor->IsPlayerRef())) {
             return func(a_manager, a_actor, a_spell, a_slot);
+        }
+
+        if (a_spell->GetEquipSlot() == Utils::left_hand_slot) { // for left only spells
+            *a_slot = Utils::left_hand_slot;
         }
 
         logger::debug("[Equip Spell Hook]:[{} - {:08X}] {} {}", a_actor->GetName(), a_actor->GetFormID(),
@@ -402,13 +426,15 @@ namespace Hooks {
         const bool isBoundWeapon = (weap && weap->IsBound());
         const bool isWhitelisted = Utils::IsWhitelistUnequip(a_object);
         const bool switchingNotAllowed = (!Settings::PC_Switch && isPlayer) || (!Settings::NPC_Switch && !isPlayer);
+        const bool isRaceBlocked = Utils::IsRaceBlocked(a_actor);
 
-        logger::debug("[UnEquip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {} {}", a_actor->GetName(),
+        logger::debug("[UnEquip Hook]:[{} - {:08X}][{} - {:08X}] Pass flags {} {} {} {} {} {} {}", a_actor->GetName(),
                       a_actor->GetFormID(), a_object->GetName(), a_object->GetFormID(), switchingNotAllowed, isDead,
-                      isRemoveUnequip, isJustEquip, (isWeapon && (isUnarmedWeapon || isBoundWeapon)), isWhitelisted);
+                      isRemoveUnequip, isJustEquip, (isWeapon && (isUnarmedWeapon || isBoundWeapon)), isWhitelisted,
+                      isRaceBlocked);
 
         if (switchingNotAllowed || isDead || isJustEquip || notInHand ||
-            (isWeapon && (isUnarmedWeapon || isBoundWeapon)) || isWhitelisted) {
+            (isWeapon && (isUnarmedWeapon || isBoundWeapon)) || isWhitelisted || isRaceBlocked) {
             return func(a_manager, a_actor, a_object, a_unk);
         }
         if (isRemoveUnequip) {

@@ -383,18 +383,20 @@ namespace Utils {
     }
 
     bool IsWhitelistUnequip(RE::TESBoundObject* a_object) {
-        bool res = false;
         if (a_object->Is(RE::FormType::Light) || a_object->Is(RE::FormType::Scroll) ||
             a_object->Is(RE::FormType::Spell)) {
-            res = true;
+            return true;
         }
         if (a_object->IsWeapon() && a_object->As<RE::TESObjectWEAP>()->IsBound()) {
-            res = true;
+            return true;
+        }
+        if (IsBoundArmor(a_object)) {
+            return true;
         }
         if (a_object->GetName() == "") {  // Unarmed weapon
-            res = true;
+            return true;
         }
-        return res;
+        return false;
     }
 
     bool IsTwoHanded(RE::TESForm* a_object) {
@@ -484,6 +486,8 @@ namespace Utils {
             left_empty = true;
         } else if (actor_left_hand->GetName() == "") {
             left_empty = true;  // Unarmed weapon
+        } else if (actor_left_hand->As<RE::TESBoundObject>() && IsBoundArmor(actor_left_hand->As<RE::TESBoundObject>())) {
+            left_empty = true; // Bound shield
         }
         
 
@@ -498,6 +502,33 @@ namespace Utils {
         }
 
         return std::make_pair(right_empty, left_empty);
+    }
+
+    bool IsBoundArmor(RE::TESBoundObject* a_object) {
+        if (!a_object || !a_object->IsArmor()) {
+            return false;
+        }
+        auto armoObj = a_object->As<RE::TESObjectARMO>();
+        if (armoObj && armoObj->ContainsKeywordString("Bound")) {
+            return true;
+        }
+        return false;
+    }
+
+    bool IsRaceBlocked(RE::Actor* actor) {
+        if (!actor) return false;
+
+        auto race = actor->GetRace();
+        if (!race) return false;
+
+        std::string editorID = race->GetFormEditorID();
+        for (const auto& keyword : Settings::blockedRaceSubstrings) {
+            if (editorID.contains(keyword)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     template <typename T>

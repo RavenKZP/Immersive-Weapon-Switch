@@ -62,6 +62,9 @@ namespace Utils {
     // Returns pair for right and left hand containing if hand is empty
     std::pair<bool, bool> GetIfHandsEmpty(RE::Actor* act);
 
+    bool IsBoundArmor(RE::TESBoundObject* a_object);
+    bool IsRaceBlocked(RE::Actor* actor);
+
     // I4 Icons
     template <typename T>
     void SetInventoryInfo(T* obj, bool left, bool unequip = false);

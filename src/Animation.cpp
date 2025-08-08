@@ -79,5 +79,6 @@ void FakeDrawWeaponMagicHands(RE::Actor* a_actor, bool equip) {
     } else {
         logger::warn("[FakeDrawWeaponMagicHands]:[{} - {:08X}] Failed to send animation event", a_actor->GetName(),
                       a_actor->GetFormID());
+        a_actor->DrawWeaponMagicHands(equip);
     }
 }
